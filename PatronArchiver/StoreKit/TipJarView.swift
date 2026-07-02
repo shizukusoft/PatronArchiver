@@ -4,14 +4,14 @@ import SwiftUI
 
 struct TipJarView: View {
     private static let logger = Logger(
-        subsystem: "dev.sinoru.PatronArchiver",
+        subsystem: "com.shizukusoft.PatronArchiver",
         category: "TipJar"
     )
 
     private static let productIDs: [String] = [
-        "dev.sinoru.PatronArchiver.tip.small",
-        "dev.sinoru.PatronArchiver.tip.medium",
-        "dev.sinoru.PatronArchiver.tip.large",
+        "com.shizukusoft.PatronArchiver.tip.small",
+        "com.shizukusoft.PatronArchiver.tip.medium",
+        "com.shizukusoft.PatronArchiver.tip.large",
     ]
 
     @State private var showThankYou = false
