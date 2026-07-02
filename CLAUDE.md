@@ -53,4 +53,4 @@ Use only Apple-bundled frameworks (Foundation, WebKit, SwiftUI, etc.) plus packa
 - Independent utilities → place as `static func` on the related class/struct
 - Common protocol helpers → default implementation in a protocol extension
 - Synchronous JS scripts (`evaluateJavaScript`) are wrapped in an IIFE to avoid global pollution
-- Logging: `OSLog` `Logger`, subsystem `dev.sinoru.PatronArchiver`, mark personal data as `.private`
+- Logging: `OSLog` `Logger`, subsystem `com.shizukusoft.PatronArchiver`, mark personal data as `.private`
