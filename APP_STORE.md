@@ -58,7 +58,10 @@ https://patronarchiver.sinoru.dev/legal/privacy
 
 ### Release Notes
 
-Initial release.
+This update fixes a couple of issues:
+
+- A supported site changed its post URL format, so links in the new format weren't recognized and couldn't be added. They now work correctly.
+- On Mac, the Add button could be pushed into the overflow menu at the default window width. The URL field now resizes with the window so the button stays visible.
 
 ## ko
 
@@ -118,7 +121,10 @@ https://patronarchiver.sinoru.dev/ko/legal/privacy
 
 ### Release Notes
 
-최초 출시.
+이번 업데이트에서 다음 문제를 수정했습니다:
+
+- 지원하는 사이트가 게시물 URL 형식을 변경하면서, 새 형식의 링크가 인식되지 않아 추가할 수 없던 문제를 수정했습니다. 이제 정상적으로 추가됩니다.
+- Mac에서 기본 창 너비일 때 추가 버튼이 더보기 메뉴로 밀려나던 문제를 수정했습니다. 이제 URL 입력란이 창 크기에 맞춰 조정되어 버튼이 항상 보입니다.
 
 ## ja
 
@@ -178,4 +184,7 @@ https://patronarchiver.sinoru.dev/legal/privacy
 
 ### Release Notes
 
-初回リリース。
+今回のアップデートでは、以下の問題を修正しました:
+
+- 対応サイトが投稿URLの形式を変更したことにより、新しい形式のリンクが認識されず、追加できない問題を修正しました。正しく追加できるようになりました。
+- Macで、デフォルトのウィンドウ幅のときに「追加」ボタンがオーバーフローメニューに隠れる問題を修正しました。URL入力欄がウィンドウサイズに合わせて調整され、ボタンが常に表示されるようになりました。

@@ -15,8 +15,8 @@ struct FeedbackMailComposer {
     static let subject = "PatronArchiver Feedback"
 
     private static let logSubsystems = [
-        "dev.sinoru.PatronArchiver",
-        "dev.sinoru.PatronArchiver.PatronArchiverKit",
+        "com.shizukusoft.PatronArchiver",
+        "com.shizukusoft.PatronArchiver.PatronArchiverKit",
     ]
 
     static func diagnosticBody() -> String {

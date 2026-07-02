@@ -1,5 +1,5 @@
 import OSLog
 
 extension Logger {
-    static let moduleSubsystem = "dev.sinoru.PatronArchiver.PatronArchiverKit"
+    static let moduleSubsystem = "com.shizukusoft.PatronArchiver.PatronArchiverKit"
 }

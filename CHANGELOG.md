@@ -9,9 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.1] - 2026-06-14
 
+### Changed
+
+- Migrated the app and StoreKit product bundle identifiers to the com.shizukusoft namespace and updated the macOS signing team
+
 ### Fixed
 
-- Patreon post URLs that include the creator path segment (e.g. from email or share links) being rejected as an unsupported site
+- Patreon post URLs in its new format that includes the creator path segment not being recognized, so they could not be added
 - macOS toolbar Add button being pushed into the overflow menu at the default window width; the URL field now resizes with the window
 
 ## [1.1] - 2026-06-04
