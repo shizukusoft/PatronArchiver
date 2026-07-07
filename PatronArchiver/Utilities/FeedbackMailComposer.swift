@@ -11,7 +11,7 @@ import SwiftUI
 // MARK: - FeedbackMailComposer
 
 struct FeedbackMailComposer {
-    static let emailAddress = "PatronArchiver@sinoru.dev"
+    static let emailAddress = "support+PatronArchiver@shizukusoft.com"
     static let subject = "PatronArchiver Feedback"
 
     private static let logSubsystems = [
