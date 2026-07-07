@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Migrated the support contact email and privacy policy hosting to the shizukusoft.com domain
+- Feedback email diagnostic logs now cover the whole process instead of only the app's own subsystems, capturing framework-level activity for easier diagnosis
 
 ## [1.1.1] - 2026-06-14
 
