@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Tip Jar and feedback sheets now open on the active window instead of every open window
 - Settings are shared by every window and the Settings scene, so a change applies everywhere at once
+- Render Width now sets a 16:9 canvas, so the render height scales with the width
 - Raised the minimum build requirement to Xcode 26.4 (Swift 6.3)
 
 ### Fixed

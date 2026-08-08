@@ -27,7 +27,7 @@ struct MainView: View {
     private var renderWidth = AppSettings.renderWidth.defaultValue
 
     private var renderSize: CGSize {
-        CGSize(width: CGFloat(renderWidth), height: 1080)
+        AppSettings.renderSize(forWidth: renderWidth)
     }
 
     init(archiver: PatronArchiver) {

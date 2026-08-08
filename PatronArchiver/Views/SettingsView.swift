@@ -45,7 +45,7 @@ struct SettingsView: View {
     #endif
 
     private var renderSize: CGSize {
-        CGSize(width: CGFloat(renderWidth), height: 1080)
+        AppSettings.renderSize(forWidth: renderWidth)
     }
 
     private var siteEntries: [SiteEntry] {

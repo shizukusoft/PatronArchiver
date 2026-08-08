@@ -28,8 +28,21 @@ public enum AppSettings {
 
     // MARK: - Derived
 
-    public static var renderSize: CGSize {
-        CGSize(width: CGFloat(renderWidth.wrappedValue), height: 1080)
+    /// The offscreen canvas the archiver renders into, for a width the caller already has.
+    ///
+    /// Taking the width rather than reading ``renderWidth`` here is deliberate. A property that
+    /// read the stored width would look right in a SwiftUI body while registering no dependency on
+    /// it, so the canvas would keep its old size until something unrelated invalidated the view.
+    /// Requiring the width means a view has to observe it — with `@UserDefaultStorage` — to call
+    /// this at all, and the shape stays spelled once rather than at each call site.
+    ///
+    /// Height follows the width at 16:9 rather than being pinned, which keeps the canvas a
+    /// plausible display shape across the whole range the Settings stepper offers. The arithmetic
+    /// is `CGFloat` because `renderWidth` is a raw stored value: integer division would truncate a
+    /// width that did not come from the stepper.
+    public static func renderSize(forWidth width: Int) -> CGSize {
+        let width = CGFloat(width)
+        return CGSize(width: width, height: width * 9 / 16)
     }
 
     /// Default archive location: the app's sandbox container `Documents` directory.

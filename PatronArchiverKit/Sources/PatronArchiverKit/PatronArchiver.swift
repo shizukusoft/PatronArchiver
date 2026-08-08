@@ -44,8 +44,11 @@ public final class PatronArchiver {
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = Self.websiteDataStore
         configuration.defaultWebpagePreferences.preferredContentMode = .desktop
+        // A starting size only: the SwiftUI representable sizes the view once it lays out, which is
+        // also how a Render Width change reaches a web view that already exists.
+        let renderSize = AppSettings.renderSize(forWidth: AppSettings.renderWidth.wrappedValue)
         let webView = WKWebView(
-            frame: CGRect(origin: .zero, size: AppSettings.renderSize),
+            frame: CGRect(origin: .zero, size: renderSize),
             configuration: configuration
         )
         webView.load(URLRequest(url: URL(string: "about:blank")!))
