@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Each window archives independently with its own job queue; closing a window cancels only that window's jobs
+
+### Changed
+
+- Tip Jar and feedback sheets now open on the active window instead of every open window
+- Settings are shared by every window and the Settings scene, so a change applies everywhere at once
+- Raised the minimum build requirement to Xcode 26.4 (Swift 6.3)
+
+### Fixed
+
+- Cancelling a job while its page was still loading left the job hanging instead of finishing
+- Temporary files from a failed job were left behind instead of being cleaned up
+- Queued jobs stopped starting while another job waited for a replace confirmation
+
 ## [1.1.1] - 2026-06-14
 
 ### Changed

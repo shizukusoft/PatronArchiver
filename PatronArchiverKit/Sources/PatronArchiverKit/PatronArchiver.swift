@@ -6,46 +6,65 @@ import WebKit
 @Observable
 public final class PatronArchiver {
     private static let logger = Logger(subsystem: Logger.moduleSubsystem, category: "PatronArchiver")
-    public internal(set) var jobs: [ArchiveJob] = []
-    public var webView: WKWebView? {
-        didSet { processNextQueuedJob() }
-    }
-    public var settings = AppSettings()
-    public let websiteDataStore = WKWebsiteDataStore.default()
-    public let urlSession: URLSession
-    private var activeTasks: [UUID: Task<Void, Never>] = [:]
 
-    #if DEBUG
-    var isDemoMode = false
-    #endif
+    /// The shared cookie/storage domain, shared across every window so a login made in one is
+    /// visible to all. `.default()` is already a process-wide singleton.
+    public static let websiteDataStore = WKWebsiteDataStore.default()
 
-    private static let bookmarkResolutionOptions: URL.BookmarkResolutionOptions = {
-        #if os(macOS)
-        .withSecurityScope
-        #else
-        []
-        #endif
-    }()
-
-    public var renderSize: CGSize {
-        CGSize(width: CGFloat(settings.renderWidth), height: 1080)
-    }
-
-    public init() {
+    /// A session that fetches media and MHTML sub-resources with the same User-Agent as the web
+    /// view. The User-Agent is read from a throwaway `WKWebView` once, on first access.
+    public static let urlSession: URLSession = {
         let userAgent = WKWebView().value(forKey: "userAgent") as? String
         let configuration = URLSessionConfiguration.default
         if let userAgent {
             configuration.httpAdditionalHeaders = ["User-Agent": userAgent]
         }
-        self.urlSession = URLSession(configuration: configuration)
+        return URLSession(configuration: configuration)
+    }()
+
+    public internal(set) var jobs: [ArchiveJob] = []
+    private var activeTasks: [UUID: Task<Void, Never>] = [:]
+
+    /// Set once the owning window has closed. Enqueues after that point are dropped: the web view
+    /// is detached, so the job could neither render nor be seen or cancelled by anyone.
+    private var isClosed = false
+
+    /// The web view this archiver drives, created lazily and owned for the archiver's lifetime.
+    ///
+    /// Owned here — rather than injected by a view — so that a window-scoped archiver has a
+    /// window-scoped web view. It is excluded from observation: the instance never changes, and
+    /// views read it to display, not to react to.
+    @ObservationIgnored
+    private var _webView: WKWebView?
+
+    public var webView: WKWebView {
+        if let _webView {
+            return _webView
+        }
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = Self.websiteDataStore
+        configuration.defaultWebpagePreferences.preferredContentMode = .desktop
+        let webView = WKWebView(
+            frame: CGRect(origin: .zero, size: AppSettings.renderSize),
+            configuration: configuration
+        )
+        webView.load(URLRequest(url: URL(string: "about:blank")!))
+        _webView = webView
+        return webView
     }
+
+    #if DEBUG
+    var isDemoMode = false
+    #endif
+
+    public init() {}
 }
 
 // MARK: - Login Check
 
 extension PatronArchiver {
     /// Checks login status by examining cookies only — fast, no network request.
-    public func isLoggedIn(for providerType: any PatronServiceProviding.Type) async -> Bool {
+    public static func isLoggedIn(for providerType: any PatronServiceProviding.Type) async -> Bool {
         let cookies = await websiteDataStore.httpCookieStore.allCookies()
         return providerType.isLoggedIn(cookies: cookies)
     }
@@ -54,21 +73,21 @@ extension PatronArchiver {
     /// and delegating extraction to the provider.
     ///
     /// - Returns: The account info if successfully fetched, nil otherwise.
-    public func fetchAccountInfo(
+    public static func fetchAccountInfo(
         for providerType: any PatronServiceProviding.Type,
         in webView: WKWebView
     ) async -> AccountInfo? {
         let identifier = providerType.siteIdentifier
         do {
             let info = try await providerType.extractAccountInfo(in: webView)
-            Self.logger.info(
+            logger.info(
                 "fetchAccountInfo \(identifier, privacy: .public) parsed=\(info != nil, privacy: .public)"
             )
             return info
         } catch is CancellationError {
             return nil
         } catch {
-            Self.logger.error(
+            logger.error(
                 "fetchAccountInfo error for \(identifier, privacy: .public): \(error.localizedDescription, privacy: .public)"
             )
             return nil
@@ -80,6 +99,10 @@ extension PatronArchiver {
 
 extension PatronArchiver {
     public func enqueue(url: URL) {
+        guard !isClosed else {
+            Self.logger.info("Ignoring enqueue after the owning window closed")
+            return
+        }
         let provider = PatronServiceManager.shared.provider(for: url)
         let job = ArchiveJob(inputURL: url, provider: provider)
         jobs.append(job)
@@ -110,6 +133,25 @@ extension PatronArchiver {
         startJobIfPossible(job)
     }
 
+    /// Cancels every job and its in-flight work. Call when the owning window is closing so the
+    /// tasks release their strong reference to the archiver and it can deinitialize.
+    ///
+    /// Also closes the archiver to further work: a URL the user submitted before the window closed
+    /// may still be resolving, and enqueuing its job here would start work nobody can see or cancel.
+    public func cancelAllJobs() {
+        isClosed = true
+        for task in activeTasks.values {
+            task.cancel()
+        }
+        activeTasks.removeAll()
+        for job in jobs {
+            discardPendingSaveIfNeeded(job)
+            if !job.status.isTerminal {
+                job.status = .failed(CancellationError())
+            }
+        }
+    }
+
     private func discardPendingSaveIfNeeded(_ job: ArchiveJob) {
         if let preparedSave = job.pendingSave {
             StorageManager.discardPreparedSave(preparedSave)
@@ -121,7 +163,7 @@ extension PatronArchiver {
         #if DEBUG
         guard !isDemoMode else { return }
         #endif
-        guard activeTasks.isEmpty, webView != nil else { return }
+        guard activeTasks.isEmpty else { return }
 
         let task = Task {
             await processJob(job)
@@ -130,9 +172,21 @@ extension PatronArchiver {
     }
 
     private func processJob(_ job: ArchiveJob) async {
-        guard let webView else { return }
+        let webView = self.webView
+
+        // Tracked outside `do` so a failure can remove it. On the paths that succeed it is no
+        // longer this job's to delete: `commitSave` moves it to its final home, and an overwrite
+        // prompt hands it to `job.pendingSave` until the user answers.
+        var stagingDirectory: URL?
 
         do {
+            // WKWebView only renders while attached to a window; wait for the SwiftUI representable
+            // to attach it before any rendering-dependent step. If it never attaches — the window
+            // closed, or layout took too long — every step below would capture a blank page.
+            guard await webView.waitUntilAttached() else {
+                throw JobError.webViewNotAttached
+            }
+
             // 1. Identify service provider
             Self.logger.info("Starting job for URL: \(job.inputURL, privacy: .private)")
             guard let provider = job.provider else {
@@ -151,18 +205,18 @@ extension PatronArchiver {
             Self.logger.debug("Page loaded, redirect chain: \(chain, privacy: .private)")
 
             // 3. Check login
-            let isLoggedIn = await self.isLoggedIn(for: type(of: provider))
+            let isLoggedIn = await Self.isLoggedIn(for: type(of: provider))
             Self.logger.info("Login status for \(type(of: provider).siteIdentifier, privacy: .public): \(isLoggedIn)")
 
             // 4. Load lazy content
             try Task.checkCancellation()
             job.progress.completedUnitCount = 15
             Self.logger.debug("Loading lazy content...")
-            try await webView.loadLazyContent(scrollDelay: settings.scrollDelay)
+            try await webView.loadLazyContent(scrollDelay: AppSettings.scrollDelay.wrappedValue)
             job.progress.completedUnitCount = 20
             try await provider.preloadContent(in: webView)
             job.progress.completedUnitCount = 25
-            try await webView.loadLazyContent(scrollDelay: settings.scrollDelay)
+            try await webView.loadLazyContent(scrollDelay: AppSettings.scrollDelay.wrappedValue)
             Self.logger.debug("Lazy content loaded")
             job.progress.completedUnitCount = 30
 
@@ -199,6 +253,7 @@ extension PatronArchiver {
             job.status = .dumping
 
             let tempDir = try StorageManager.temporaryDownloadDirectory()
+            stagingDirectory = tempDir
 
             // Start media download in background (no WebView dependency)
             Self.logger.debug("Starting media download concurrently...")
@@ -207,8 +262,8 @@ extension PatronArchiver {
             async let mediaResult = MediaDownloader.download(
                 items: mediaItems,
                 to: tempDir,
-                websiteDataStore: websiteDataStore,
-                urlSession: urlSession,
+                websiteDataStore: Self.websiteDataStore,
+                urlSession: Self.urlSession,
                 onFileDownloaded: { @Sendable in
                     let count = completedMediaCount.withLock { value in
                         value += 1
@@ -223,7 +278,7 @@ extension PatronArchiver {
 
             // MHTML + PDF on WebView (sequential, needs WebView)
             Self.logger.debug("Generating MHTML...")
-            let mhtmlData = try await MHTMLArchiver(webView, urlSession: urlSession).archive()
+            let mhtmlData = try await MHTMLArchiver(webView, urlSession: Self.urlSession).archive()
             let mhtmlSize = mhtmlData.count.formatted(
                 .byteCount(style: .binary, spellsOutZero: false, includesActualByteCount: true)
             )
@@ -247,7 +302,7 @@ extension PatronArchiver {
             // 9. Prepare save (write PDF/MHTML to staging + xattr)
             try Task.checkCancellation()
             job.status = .saving
-            let baseDir = resolveBaseDirectory()
+            let baseDir = AppSettings.resolveBaseDirectory()
             Self.logger.debug("Preparing save to: \(baseDir.path(), privacy: .private)")
             let preparedSave = try StorageManager.prepareSave(
                 metadata: metadata,
@@ -257,9 +312,9 @@ extension PatronArchiver {
                 downloadedMedia: downloadedMedia,
                 stagingDirectory: tempDir,
                 baseDirectory: baseDir,
-                includesWhereFroms: settings.includesWhereFroms,
-                includesFinderTags: settings.includesFinderTags,
-                includesContentDates: settings.includesContentDates
+                includesWhereFroms: AppSettings.includesWhereFroms.wrappedValue,
+                includesFinderTags: AppSettings.includesFinderTags.wrappedValue,
+                includesContentDates: AppSettings.includesContentDates.wrappedValue
             )
             job.progress.completedUnitCount = 90
 
@@ -269,27 +324,36 @@ extension PatronArchiver {
             }
 
             if folderExists {
-                // Await user confirmation
+                // Await user confirmation. This job is parked on the user rather than still
+                // working, so it falls through to release the queue slot below: everything it
+                // still needs is already staged on disk, and committing later touches no web view.
                 Self.logger.info("Post folder already exists, awaiting overwrite confirmation")
                 job.pendingSave = preparedSave
                 job.status = .awaitingOverwriteConfirmation
-                return
+            } else {
+                // 11. Commit save
+                try baseDir.withSecurityScopedAccess {
+                    try StorageManager.commitSave(preparedSave, overwrite: false)
+                }
+                job.progress.completedUnitCount = 100
+                job.status = .completed
+                Self.logger.info("Job completed successfully")
             }
-
-            // 11. Commit save
-            try baseDir.withSecurityScopedAccess {
-                try StorageManager.commitSave(preparedSave, overwrite: false)
-            }
-            job.progress.completedUnitCount = 100
-            job.status = .completed
-            Self.logger.info("Job completed successfully")
         } catch {
             Self.logger.error("Job failed: \(error.localizedDescription, privacy: .public)")
             job.status = .failed(error)
+            if let stagingDirectory {
+                StorageManager.discardStagingDirectory(stagingDirectory)
+            }
         }
 
-        await loadBlankPage(in: webView)
         activeTasks[job.id] = nil
+        // A cancelled job unwinds after `cancelJob` has already started the next one, so the web
+        // view may no longer be this job's to reset — blanking it here would abort the navigation
+        // the successor just started.
+        if activeTasks.isEmpty {
+            await loadBlankPage(in: webView)
+        }
         processNextQueuedJob()
     }
 
@@ -311,7 +375,7 @@ extension PatronArchiver {
         job.status = .saving
 
         do {
-            let baseDir = resolveBaseDirectory()
+            let baseDir = AppSettings.resolveBaseDirectory()
             try baseDir.withSecurityScopedAccess {
                 try StorageManager.commitSave(preparedSave, overwrite: true)
             }
@@ -342,20 +406,4 @@ extension PatronArchiver {
         }) else { return }
         startJobIfPossible(nextJob)
     }
-
-    /// The directory archives are currently written to: the user-selected folder
-    /// (resolved from its security-scoped bookmark) or ``AppSettings/defaultSaveDirectory``.
-    public func resolveBaseDirectory() -> URL {
-        var isStale = false
-        if let bookmarkData = settings.savedDirectoryBookmark,
-           let url = try? URL(
-            resolvingBookmarkData: bookmarkData,
-            options: Self.bookmarkResolutionOptions,
-            bookmarkDataIsStale: &isStale
-           ) {
-            return url
-        }
-        return settings.defaultSaveDirectory
-    }
 }
-

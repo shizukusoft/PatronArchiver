@@ -1,13 +1,30 @@
 import PatronArchiverKit
 import SwiftUI
 import UniformTypeIdentifiers
+import UserDefaultsKit
 import WebKit
 #if canImport(MessageUI)
 import MessageUI
 #endif
 
 struct SettingsView: View {
-    @Bindable private var patronArchiver: PatronArchiver
+    @UserDefaultStorage(AppSettings.renderWidth.key)
+    private var renderWidth = AppSettings.renderWidth.defaultValue
+
+    @UserDefaultStorage(AppSettings.scrollDelay.key)
+    private var scrollDelay = AppSettings.scrollDelay.defaultValue
+
+    @UserDefaultStorage(AppSettings.savedDirectoryBookmark.key)
+    private var savedDirectoryBookmark = AppSettings.savedDirectoryBookmark.defaultValue
+
+    @UserDefaultStorage(AppSettings.includesWhereFroms.key)
+    private var includesWhereFroms = AppSettings.includesWhereFroms.defaultValue
+
+    @UserDefaultStorage(AppSettings.includesFinderTags.key)
+    private var includesFinderTags = AppSettings.includesFinderTags.defaultValue
+
+    @UserDefaultStorage(AppSettings.includesContentDates.key)
+    private var includesContentDates = AppSettings.includesContentDates.defaultValue
 
     @State private var verificationWebViews: [String: WKWebView] = [:]
     @State private var isPickingFolder = false
@@ -27,6 +44,10 @@ struct SettingsView: View {
     private static let bookmarkResolutionOptions: URL.BookmarkResolutionOptions = []
     #endif
 
+    private var renderSize: CGSize {
+        CGSize(width: CGFloat(renderWidth), height: 1080)
+    }
+
     private var siteEntries: [SiteEntry] {
         PatronServiceManager.userVisibleProviderTypes.map { providerType in
             SiteEntry(
@@ -37,16 +58,8 @@ struct SettingsView: View {
         }
     }
 
-    init(
-        patronArchiver: PatronArchiver
-    ) {
-        self.patronArchiver = patronArchiver
-    }
-
     @ViewBuilder
     private var verificationWebViewArea: some View {
-        let renderSize = patronArchiver.renderSize
-
         ZStack {
             ForEach(verificationWebViews.keys.sorted(), id: \.self) { identifier in
                 if let webView = verificationWebViews[identifier] {
@@ -108,8 +121,8 @@ struct SettingsView: View {
 
             Section("Rendering") {
                 Stepper(
-                    "Render Width: \(patronArchiver.settings.renderWidth)px",
-                    value: $patronArchiver.settings.renderWidth,
+                    "Render Width: \(renderWidth)px",
+                    value: $renderWidth,
                     in: 800...3840,
                     step: 160
                 )
@@ -117,7 +130,7 @@ struct SettingsView: View {
                 HStack {
                     Text("Scroll Delay")
                     Spacer()
-                    TextField("ms", value: $patronArchiver.settings.scrollDelay, format: .number)
+                    TextField("ms", value: $scrollDelay, format: .number)
                         .frame(width: 80)
                         #if os(macOS)
                         .textFieldStyle(.roundedBorder)
@@ -127,16 +140,16 @@ struct SettingsView: View {
             }
 
             Section("Metadata") {
-                Toggle("Where Froms", isOn: $patronArchiver.settings.includesWhereFroms)
-                Toggle("Finder Tags", isOn: $patronArchiver.settings.includesFinderTags)
-                Toggle("Content Dates", isOn: $patronArchiver.settings.includesContentDates)
+                Toggle("Where Froms", isOn: $includesWhereFroms)
+                Toggle("Finder Tags", isOn: $includesFinderTags)
+                Toggle("Content Dates", isOn: $includesContentDates)
             }
 
             Section("Storage") {
                 HStack {
                     Text("Save Location")
                     Spacer()
-                    if let bookmark = patronArchiver.settings.savedDirectoryBookmark,
+                    if let bookmark = savedDirectoryBookmark,
                        let url = try? {
                         var isStale = false
                         return try URL(
@@ -161,7 +174,7 @@ struct SettingsView: View {
                     allowedContentTypes: [.folder]
                 ) { result in
                     if case .success(let url) = result {
-                        patronArchiver.settings.savedDirectoryBookmark = try? url.bookmarkData(
+                        savedDirectoryBookmark = try? url.bookmarkData(
                             options: Self.bookmarkCreationOptions,
                             includingResourceValuesForKeys: nil,
                             relativeTo: nil
@@ -169,9 +182,9 @@ struct SettingsView: View {
                     }
                 }
 
-                if patronArchiver.settings.savedDirectoryBookmark != nil {
+                if savedDirectoryBookmark != nil {
                     Button("Reset to Default") {
-                        patronArchiver.settings.savedDirectoryBookmark = nil
+                        savedDirectoryBookmark = nil
                     }
                 }
             }
@@ -215,7 +228,7 @@ struct SettingsView: View {
                 LoginWebView(
                     url: entry.loginURL,
                     providerType: entry.providerType,
-                    websiteDataStore: patronArchiver.websiteDataStore,
+                    websiteDataStore: PatronArchiver.websiteDataStore,
                     onLoginDetected: {
                         loginEntry = nil
                     }
@@ -260,7 +273,7 @@ struct SettingsView: View {
             for providerType in providerTypes {
                 let identifier = providerType.siteIdentifier
                 group.addTask {
-                    let loggedIn = await patronArchiver.isLoggedIn(for: providerType)
+                    let loggedIn = await PatronArchiver.isLoggedIn(for: providerType)
                     return (identifier, loggedIn)
                 }
             }
@@ -287,10 +300,10 @@ struct SettingsView: View {
         }
 
         let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = patronArchiver.websiteDataStore
+        configuration.websiteDataStore = PatronArchiver.websiteDataStore
         configuration.defaultWebpagePreferences.preferredContentMode = .desktop
         let webView = WKWebView(
-            frame: CGRect(origin: .zero, size: patronArchiver.renderSize),
+            frame: CGRect(origin: .zero, size: renderSize),
             configuration: configuration
         )
         verificationWebViews[identifier] = webView
@@ -302,18 +315,17 @@ struct SettingsView: View {
                 }
             }
 
-            // WKWebView only renders when attached to the window — wait for layout.
-            // `window` is flagged unsafe under strict memory safety; reading it on the main actor is fine.
-            for _ in 0..<100 {
-                if unsafe webView.window != nil { break }
-                do {
-                    try await Task.sleep(for: .milliseconds(50))
-                } catch {
-                    return
+            // WKWebView only renders when attached to the window — wait for layout. Without an
+            // attachment the account page never renders, so report failure instead of asking for
+            // account info the provider could not possibly extract.
+            guard await webView.waitUntilAttached() else {
+                if !Task.isCancelled {
+                    accountStatuses[identifier] = .verificationFailed
                 }
+                return
             }
 
-            let info = await patronArchiver.fetchAccountInfo(
+            let info = await PatronArchiver.fetchAccountInfo(
                 for: providerType,
                 in: webView
             )
@@ -338,7 +350,7 @@ struct SettingsView: View {
             hostsToClear.insert(host)
         }
 
-        let cookieStore = patronArchiver.websiteDataStore.httpCookieStore
+        let cookieStore = PatronArchiver.websiteDataStore.httpCookieStore
         let allCookies = await cookieStore.allCookies()
 
         for cookie in allCookies where hostsToClear.contains(where: { Self.cookie(cookie, matches: $0) }) {
@@ -359,7 +371,7 @@ struct SettingsView: View {
     private func checkLoginStatus(for providerType: any PatronServiceProviding.Type) async {
         let identifier = providerType.siteIdentifier
 
-        let loggedIn = await patronArchiver.isLoggedIn(for: providerType)
+        let loggedIn = await PatronArchiver.isLoggedIn(for: providerType)
         guard loggedIn else {
             if case .verifying(let task) = accountStatuses[identifier] {
                 task.cancel()

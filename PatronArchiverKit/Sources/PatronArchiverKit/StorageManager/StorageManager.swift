@@ -122,11 +122,17 @@ enum StorageManager {
     // MARK: - Discard staging on cancel
 
     static func discardPreparedSave(_ preparedSave: PreparedSave) {
+        discardStagingDirectory(preparedSave.stagingDirectory)
+    }
+
+    /// Removes a staging directory that no longer has anywhere to go.
+    ///
+    /// Takes the URL rather than a ``PreparedSave`` so a job that failed before preparing one — a
+    /// download error, say — can still clean up what it had already written.
+    static func discardStagingDirectory(_ stagingDirectory: URL) {
         do {
-            try FileManager.default.removeItem(at: preparedSave.stagingDirectory)
-            logger.debug(
-                "Discarded staging: \(preparedSave.stagingDirectory.path(), privacy: .private)"
-            )
+            try FileManager.default.removeItem(at: stagingDirectory)
+            logger.debug("Discarded staging: \(stagingDirectory.path(), privacy: .private)")
         } catch {
             logger.warning("Failed to discard staging directory: \(error.localizedDescription)")
         }

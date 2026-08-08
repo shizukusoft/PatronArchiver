@@ -1,14 +1,13 @@
 import PatronArchiverKit
 import SwiftUI
-import WebKit
+import UserDefaultsKit
 #if canImport(AppKit)
 import AppKit
 #endif
 
 struct MainView: View {
-    private let patronArchiver: PatronArchiver
+    private let archiver: PatronArchiver
 
-    @State private var webView: WKWebView
     @State private var urlText = ""
     @State private var isResolving = false
     #if os(iOS)
@@ -21,19 +20,18 @@ struct MainView: View {
     @State private var addressFieldWidth: CGFloat = 280
     #endif
 
-    init(
-        patronArchiver: PatronArchiver
-    ) {
-        self.patronArchiver = patronArchiver
+    /// Observed rather than read from ``AppSettings`` at the point of use: a static read registers
+    /// no SwiftUI dependency, so a Render Width change in Settings would leave this window's web
+    /// view at the old size until some unrelated state happened to invalidate the view.
+    @UserDefaultStorage(AppSettings.renderWidth.key)
+    private var renderWidth = AppSettings.renderWidth.defaultValue
 
-        let webViewConfiguration = WKWebViewConfiguration()
-        webViewConfiguration.websiteDataStore = patronArchiver.websiteDataStore
-        webViewConfiguration.defaultWebpagePreferences.preferredContentMode = .desktop
+    private var renderSize: CGSize {
+        CGSize(width: CGFloat(renderWidth), height: 1080)
+    }
 
-        self._webView = State(initialValue: WKWebView(
-            frame: CGRect(origin: .zero, size: patronArchiver.renderSize),
-            configuration: webViewConfiguration
-        ))
+    init(archiver: PatronArchiver) {
+        self.archiver = archiver
     }
 
     @ViewBuilder
@@ -73,7 +71,7 @@ struct MainView: View {
 
     var body: some View {
         NavigationStack {
-            JobListView(archiver: patronArchiver)
+            JobListView(archiver: archiver)
                 .background {
                     archiveWebViewArea
                 }
@@ -87,10 +85,6 @@ struct MainView: View {
                     addressFieldWidth = min(max(windowWidth * 0.4, 220), 700)
                 }
                 #endif
-                .onAppear {
-                    patronArchiver.webView = webView
-                    webView.load(URLRequest(url: URL(string: "about:blank")!))
-                }
                 .navigationTitle("PatronArchiver")
                 #if os(iOS)
                 .navigationBarTitleDisplayMode(.large)
@@ -131,7 +125,7 @@ struct MainView: View {
                 #if os(iOS)
                 .sheet(isPresented: $showSettings) {
                     NavigationStack {
-                        SettingsView(patronArchiver: patronArchiver)
+                        SettingsView()
                             .navigationTitle("Settings")
                             .navigationBarTitleDisplayMode(.inline)
                             .toolbar {
@@ -149,9 +143,7 @@ struct MainView: View {
 
     @ViewBuilder
     private var archiveWebViewArea: some View {
-        let renderSize = patronArchiver.renderSize
-
-        ArchiveWebViewRepresentable(webView: webView)
+        ArchiveWebViewRepresentable(webView: archiver.webView)
             .frame(width: renderSize.width, height: renderSize.height)
             .scaleEffect(
                 1.0 / max(renderSize.width, renderSize.height),
@@ -176,13 +168,13 @@ struct MainView: View {
         components.fragment = nil
         guard let url = components.url else { return }
 
-        patronArchiver.enqueue(url: url)
+        archiver.enqueue(url: url)
         urlText = ""
     }
 
     /// Opens the current save location in Finder (macOS) or the Files app (iOS).
     private func openSaveLocation() {
-        let url = patronArchiver.resolveBaseDirectory()
+        let url = AppSettings.resolveBaseDirectory()
         let didStart = url.startAccessingSecurityScopedResource()
         defer { if didStart { url.stopAccessingSecurityScopedResource() } }
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)

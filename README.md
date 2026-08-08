@@ -27,7 +27,7 @@ PatronArchiver does not collect, transmit, or share any personal data. There are
 ## Requirements
 
 - macOS 15.6+ / iOS 18.6+
-- Xcode 26.0+ (for building from source)
+- Xcode 26.4+ (Swift 6.3, for building from source)
 
 ## Build
 

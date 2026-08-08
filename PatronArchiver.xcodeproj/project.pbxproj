@@ -3,11 +3,12 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 100;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		196313EF2F5D59C800A8BCC7 /* PatronArchiverKit in Frameworks */ = {isa = PBXBuildFile; productRef = 196313EE2F5D59C800A8BCC7 /* PatronArchiverKit */; };
+		199A4CD030201C3A00F65DFE /* UserDefaultsKit in Frameworks */ = {isa = PBXBuildFile; productRef = 199A4CCF30201C3A00F65DFE /* UserDefaultsKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -69,25 +70,20 @@
 /* Begin PBXFrameworksBuildPhase section */
 		196C1BD32F57F8310014D927 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
+				199A4CD030201C3A00F65DFE /* UserDefaultsKit in Frameworks */,
 				196313EF2F5D59C800A8BCC7 /* PatronArchiverKit in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		196C1BE02F57F8320014D927 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		196C1BEA2F57F8320014D927 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -135,14 +131,13 @@
 			);
 			buildRules = (
 			);
-			dependencies = (
-			);
 			fileSystemSynchronizedGroups = (
 				196C1BD82F57F8310014D927 /* PatronArchiver */,
 			);
 			name = PatronArchiver;
 			packageProductDependencies = (
 				196313EE2F5D59C800A8BCC7 /* PatronArchiverKit */,
+				199A4CCF30201C3A00F65DFE /* UserDefaultsKit */,
 			);
 			productName = PatronArchiver;
 			productReference = 196C1BD62F57F8310014D927 /* PatronArchiver.app */;
@@ -165,8 +160,6 @@
 				196C1BE62F57F8320014D927 /* PatronArchiverTests */,
 			);
 			name = PatronArchiverTests;
-			packageProductDependencies = (
-			);
 			productName = PatronArchiverTests;
 			productReference = 196C1BE32F57F8320014D927 /* PatronArchiverTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -188,8 +181,6 @@
 				196C1BF02F57F8320014D927 /* PatronArchiverUITests */,
 			);
 			name = PatronArchiverUITests;
-			packageProductDependencies = (
-			);
 			productName = PatronArchiverUITests;
 			productReference = 196C1BED2F57F8320014D927 /* PatronArchiverUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -228,6 +219,9 @@
 			);
 			mainGroup = 196C1BCD2F57F8310014D927;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				199A4CCE30201C3A00F65DFE /* XCRemoteSwiftPackageReference "swift-user-defaults-kit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 196C1BD72F57F8310014D927 /* Products */;
 			projectDirPath = "";
@@ -243,48 +237,36 @@
 /* Begin PBXResourcesBuildPhase section */
 		196C1BD42F57F8310014D927 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		196C1BE12F57F8320014D927 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		196C1BEB2F57F8320014D927 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		196C1BD22F57F8310014D927 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		196C1BDF2F57F8320014D927 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		196C1BE92F57F8320014D927 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
@@ -302,7 +284,7 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		196C1BF52F57F8320014D927 /* Debug */ = {
+		196C1BF52F57F8320014D927 /* Debug configuration for PBXProject "PatronArchiver" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -385,7 +367,7 @@
 			};
 			name = Debug;
 		};
-		196C1BF62F57F8320014D927 /* Release */ = {
+		196C1BF62F57F8320014D927 /* Release configuration for PBXProject "PatronArchiver" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -461,7 +443,7 @@
 			};
 			name = Release;
 		};
-		196C1BF82F57F8320014D927 /* Debug */ = {
+		196C1BF82F57F8320014D927 /* Debug configuration for PBXNativeTarget "PatronArchiver" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -497,7 +479,7 @@
 			};
 			name = Debug;
 		};
-		196C1BF92F57F8320014D927 /* Release */ = {
+		196C1BF92F57F8320014D927 /* Release configuration for PBXNativeTarget "PatronArchiver" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -533,7 +515,7 @@
 			};
 			name = Release;
 		};
-		196C1BFB2F57F8320014D927 /* Debug */ = {
+		196C1BFB2F57F8320014D927 /* Debug configuration for PBXNativeTarget "PatronArchiverTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -547,7 +529,7 @@
 			};
 			name = Debug;
 		};
-		196C1BFC2F57F8320014D927 /* Release */ = {
+		196C1BFC2F57F8320014D927 /* Release configuration for PBXNativeTarget "PatronArchiverTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -561,7 +543,7 @@
 			};
 			name = Release;
 		};
-		196C1BFE2F57F8320014D927 /* Debug */ = {
+		196C1BFE2F57F8320014D927 /* Debug configuration for PBXNativeTarget "PatronArchiverUITests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GENERATE_INFOPLIST_FILE = YES;
@@ -574,7 +556,7 @@
 			};
 			name = Debug;
 		};
-		196C1BFF2F57F8320014D927 /* Release */ = {
+		196C1BFF2F57F8320014D927 /* Release configuration for PBXNativeTarget "PatronArchiverUITests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GENERATE_INFOPLIST_FILE = YES;
@@ -593,45 +575,61 @@
 		196C1BD12F57F8310014D927 /* Build configuration list for PBXProject "PatronArchiver" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				196C1BF52F57F8320014D927 /* Debug */,
-				196C1BF62F57F8320014D927 /* Release */,
+				196C1BF52F57F8320014D927 /* Debug configuration for PBXProject "PatronArchiver" */,
+				196C1BF62F57F8320014D927 /* Release configuration for PBXProject "PatronArchiver" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		196C1BF72F57F8320014D927 /* Build configuration list for PBXNativeTarget "PatronArchiver" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				196C1BF82F57F8320014D927 /* Debug */,
-				196C1BF92F57F8320014D927 /* Release */,
+				196C1BF82F57F8320014D927 /* Debug configuration for PBXNativeTarget "PatronArchiver" */,
+				196C1BF92F57F8320014D927 /* Release configuration for PBXNativeTarget "PatronArchiver" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		196C1BFA2F57F8320014D927 /* Build configuration list for PBXNativeTarget "PatronArchiverTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				196C1BFB2F57F8320014D927 /* Debug */,
-				196C1BFC2F57F8320014D927 /* Release */,
+				196C1BFB2F57F8320014D927 /* Debug configuration for PBXNativeTarget "PatronArchiverTests" */,
+				196C1BFC2F57F8320014D927 /* Release configuration for PBXNativeTarget "PatronArchiverTests" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		196C1BFD2F57F8320014D927 /* Build configuration list for PBXNativeTarget "PatronArchiverUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				196C1BFE2F57F8320014D927 /* Debug */,
-				196C1BFF2F57F8320014D927 /* Release */,
+				196C1BFE2F57F8320014D927 /* Debug configuration for PBXNativeTarget "PatronArchiverUITests" */,
+				196C1BFF2F57F8320014D927 /* Release configuration for PBXNativeTarget "PatronArchiverUITests" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		199A4CCE30201C3A00F65DFE /* XCRemoteSwiftPackageReference "swift-user-defaults-kit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sinoru/swift-user-defaults-kit";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 0.0.1;
+			};
+			traits = (
+				SwiftUI,
+				default,
+			);
+		};
+/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		196313EE2F5D59C800A8BCC7 /* PatronArchiverKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = PatronArchiverKit;
+		};
+		199A4CCF30201C3A00F65DFE /* UserDefaultsKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 199A4CCE30201C3A00F65DFE /* XCRemoteSwiftPackageReference "swift-user-defaults-kit" */;
+			productName = UserDefaultsKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

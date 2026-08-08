@@ -34,8 +34,10 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - name: Select Xcode 26.3
-        run: sudo xcodes select 26.3
+      # 26.4 is the floor for Swift 6.3, which swift-user-defaults-kit's manifest
+      # requires. Pin to the documented minimum so CI validates that floor.
+      - name: Select Xcode 26.4.1
+        run: sudo xcodes select 26.4.1
 
       - name: Restore Xcode Cache
         uses: actions/cache@v5
@@ -168,8 +170,13 @@ jobs:
             runs-on: macos-15
             continue-on-error: true
     steps:
-      - name: Select Xcode 26.3
-        run: sudo xcodes select 26.3
+      # Swift 6.3 needs Xcode 26.4+, but the macos-15 image tops out at 26.3, so
+      # the legacy entries run the 26.4.1-built products on the older toolchain —
+      # the cross-Xcode swift-testing split is back for those. They stay
+      # continue-on-error, as they already SIGSEGV on macos-15 + iOS 18.6 even
+      # with a matched toolchain.
+      - name: Select Xcode
+        run: sudo xcodes select ${{ matrix.runs-on == 'macos-15' && '26.3' || '26.4.1' }}
 
       - name: Download Test Products
         uses: actions/download-artifact@v7

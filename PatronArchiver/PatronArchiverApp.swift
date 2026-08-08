@@ -7,7 +7,7 @@ import AppKit
 @main
 struct PatronArchiverApp: App {
     #if DEBUG
-    private static var isDemoMode: Bool {
+    static var isDemoMode: Bool {
         ProcessInfo.processInfo.arguments.contains("-DemoMode")
     }
     #endif
@@ -15,33 +15,9 @@ struct PatronArchiverApp: App {
     @State
     private var transactionObserver = TransactionObserver()
 
-    @State
-    private var patronArchiver: PatronArchiver = {
-        let archiver = PatronArchiver()
-        #if DEBUG
-        if isDemoMode {
-            archiver.loadDemoJobs()
-        }
-        #endif
-        return archiver
-    }()
-
-    @State private var showTipJarSheet = false
-    #if os(iOS)
-    @State private var showMailCompose = false
-    #endif
-
     var body: some Scene {
         WindowGroup {
-            MainView(patronArchiver: patronArchiver)
-                .sheet(isPresented: $showTipJarSheet) {
-                    TipJarSheet()
-                }
-                #if os(iOS)
-                .sheet(isPresented: $showMailCompose) {
-                    MailComposeView()
-                }
-                #endif
+            MainWindow()
                 #if os(macOS)
                 #if DEBUG
                 // 848 = 900 (target window height) - 52 (unified title bar + toolbar chrome)
@@ -68,14 +44,7 @@ struct PatronArchiverApp: App {
                 #endif
         }
         .commands {
-            #if os(iOS)
-            HelpCommands(
-                showTipJarSheet: $showTipJarSheet,
-                showMailCompose: $showMailCompose
-            )
-            #else
-            HelpCommands(showTipJarSheet: $showTipJarSheet)
-            #endif
+            HelpCommands()
         }
         #if os(macOS)
         #if DEBUG
@@ -94,7 +63,7 @@ struct PatronArchiverApp: App {
 
         #if os(macOS)
         Settings {
-            SettingsView(patronArchiver: patronArchiver)
+            SettingsView()
         }
         #endif
     }
