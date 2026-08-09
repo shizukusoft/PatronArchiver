@@ -2,10 +2,15 @@ import Foundation
 import WebKit
 
 struct PatreonProvider: PatronServiceProviding {
-    nonisolated(unsafe) static let matchPatterns: [Regex<Substring>] = [
-        /https:\/\/(?:www\.)?patreon\.com\/posts\/.+/,
-        /https:\/\/(?:www\.)?patreon\.com\/[^\/]+\/posts\/.+/,
-    ]
+    // Computed rather than stored: `Regex` is not `Sendable`, so a `static let` would need
+    // `nonisolated(unsafe)`. Building the patterns per access keeps them unshared, and the only
+    // caller matches a URL once per archive job.
+    static var matchPatterns: [Regex<Substring>] {
+        [
+            /https:\/\/(?:www\.)?patreon\.com\/posts\/.+/,
+            /https:\/\/(?:www\.)?patreon\.com\/[^\/]+\/posts\/.+/,
+        ]
+    }
     static let loginURL = URL(string: "https://www.patreon.com/login")!
     static let accountCheckURL = URL(string: "https://www.patreon.com/settings/basics")!
     static let siteIdentifier = "Patreon"

@@ -306,7 +306,9 @@ extension MHTMLArchiver {
 extension MHTMLArchiver {
     /// Extracts sub-resources from a binary plist webarchive, deduplicating by URL.
     private nonisolated static func parseWebArchiveResources(_ data: Data) -> [Resource] {
-        guard let plist = try? PropertyListSerialization.propertyList(
+        // The `format:` out-parameter is an `UnsafeMutablePointer`, and no overload omits it —
+        // passing `nil` opts out of reading it back, hence `unsafe`.
+        guard let plist = try? unsafe PropertyListSerialization.propertyList(
             from: data, format: nil
         ) as? [String: Any] else {
             return []

@@ -8,12 +8,7 @@ enum XattrHelper {
             format: .binary,
             options: 0
         )
-        let result = plistData.withUnsafeBytes { buffer in
-            setxattr(path, "com.apple.metadata:kMDItemWhereFroms", buffer.baseAddress, buffer.count, 0, 0)
-        }
-        if result != 0 {
-            throw CocoaError(.fileWriteUnknown)
-        }
+        try setExtendedAttribute("com.apple.metadata:kMDItemWhereFroms", to: plistData, on: path)
     }
 
     static func setContentDates(
@@ -26,19 +21,11 @@ enum XattrHelper {
             format: .binary,
             options: 0
         )
-        let creationResult = creationData.withUnsafeBytes { buffer in
-            setxattr(
-                path,
-                "com.apple.metadata:kMDItemContentCreationDate",
-                buffer.baseAddress,
-                buffer.count,
-                0,
-                0
-            )
-        }
-        if creationResult != 0 {
-            throw CocoaError(.fileWriteUnknown)
-        }
+        try setExtendedAttribute(
+            "com.apple.metadata:kMDItemContentCreationDate",
+            to: creationData,
+            on: path
+        )
 
         if let modifiedAt {
             let modificationData = try PropertyListSerialization.data(
@@ -46,19 +33,11 @@ enum XattrHelper {
                 format: .binary,
                 options: 0
             )
-            let modificationResult = modificationData.withUnsafeBytes { buffer in
-                setxattr(
-                    path,
-                    "com.apple.metadata:kMDItemContentModificationDate",
-                    buffer.baseAddress,
-                    buffer.count,
-                    0,
-                    0
-                )
-            }
-            if modificationResult != 0 {
-                throw CocoaError(.fileWriteUnknown)
-            }
+            try setExtendedAttribute(
+                "com.apple.metadata:kMDItemContentModificationDate",
+                to: modificationData,
+                on: path
+            )
         }
     }
 
@@ -69,10 +48,27 @@ enum XattrHelper {
             format: .binary,
             options: 0
         )
-        let result = plistData.withUnsafeBytes { buffer in
-            setxattr(path, "com.apple.metadata:_kMDItemUserTags", buffer.baseAddress, buffer.count, 0, 0)
+        try setExtendedAttribute("com.apple.metadata:_kMDItemUserTags", to: plistData, on: path)
+    }
+
+    /// Writes a single extended attribute, bridging `Data` to the raw pointer pair `setxattr`
+    /// expects.
+    ///
+    /// `setxattr` only borrows the buffer for the duration of the call, and `path`/`name` are
+    /// bridged as null-terminated C strings that stay alive across it — hence the `unsafe`
+    /// acknowledgements under strict memory safety.
+    ///
+    /// Named `setExtendedAttribute` rather than `setxattr` so the call below resolves to the C
+    /// function instead of recursing into this one.
+    private static func setExtendedAttribute(
+        _ name: String,
+        to data: Data,
+        on path: String
+    ) throws {
+        let result = unsafe data.withUnsafeBytes { buffer in
+            unsafe setxattr(path, name, buffer.baseAddress, buffer.count, 0, 0)
         }
-        if result != 0 {
+        guard result == 0 else {
             throw CocoaError(.fileWriteUnknown)
         }
     }

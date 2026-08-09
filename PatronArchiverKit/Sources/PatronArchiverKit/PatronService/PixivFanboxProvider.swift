@@ -2,10 +2,15 @@ import Foundation
 import WebKit
 
 struct PixivFanboxProvider: PatronServiceProviding {
-    nonisolated(unsafe) static let matchPatterns: [Regex<Substring>] = [
-        /https:\/\/[^\/]+\.fanbox\.cc\/posts\/.+/,
-        /https:\/\/www\.fanbox\.cc\/@[^\/]+\/posts\/.+/,
-    ]
+    // Computed rather than stored: `Regex` is not `Sendable`, so a `static let` would need
+    // `nonisolated(unsafe)`. Building the patterns per access keeps them unshared, and the only
+    // caller matches a URL once per archive job.
+    static var matchPatterns: [Regex<Substring>] {
+        [
+            /https:\/\/[^\/]+\.fanbox\.cc\/posts\/.+/,
+            /https:\/\/www\.fanbox\.cc\/@[^\/]+\/posts\/.+/,
+        ]
+    }
     static let loginURL = URL(string: "https://www.fanbox.cc/login")!
     static let accountCheckURL = URL(string: "https://www.fanbox.cc/user/settings")!
     static let siteIdentifier = "pixivFANBOX"

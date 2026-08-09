@@ -3,6 +3,11 @@
 
 import PackageDescription
 
+let commonSwiftSettings: [SwiftSetting] = [
+    .enableUpcomingFeature("ApproachableConcurrency"),
+    .strictMemorySafety(),
+]
+
 let package = Package(
     name: "PatronArchiverKit",
     defaultLocalization: "en",
@@ -36,11 +41,13 @@ let package = Package(
             ],
             resources: [
                 .copy("LazyContentLoader/LazyContentLoader.js"),
-            ]
+            ],
+            swiftSettings: commonSwiftSettings
         ),
         .testTarget(
             name: "PatronArchiverKitTests",
-            dependencies: ["PatronArchiverKit"]
+            dependencies: ["PatronArchiverKit"],
+            swiftSettings: commonSwiftSettings
         ),
     ]
 )
