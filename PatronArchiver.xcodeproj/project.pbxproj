@@ -608,7 +608,7 @@
 			repositoryURL = "https://github.com/sinoru/swift-user-defaults-kit";
 			requirement = {
 				kind = upToNextMinorVersion;
-				minimumVersion = 0.0.1;
+				minimumVersion = 0.0.2;
 			};
 			traits = (
 				SwiftUI,

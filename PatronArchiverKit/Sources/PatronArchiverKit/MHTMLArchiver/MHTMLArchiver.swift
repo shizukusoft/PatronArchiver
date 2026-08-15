@@ -1,4 +1,5 @@
 import Foundation
+import PropertyList
 import WebKit
 
 // MARK: - MHTMLArchiver
@@ -305,49 +306,47 @@ extension MHTMLArchiver {
 
 extension MHTMLArchiver {
     /// Extracts sub-resources from a binary plist webarchive, deduplicating by URL.
+    ///
+    /// Read into a `PropertyListValue` rather than the `Any` `PropertyListSerialization` deals in:
+    /// the shape below is the same walk either way, but the tree is typed, so a key that holds the
+    /// wrong kind answers `nil` here instead of needing a cast to say so. It also keeps the reading
+    /// tolerant — a webarchive is WebKit's to write, and one malformed entry should cost that entry
+    /// rather than the whole archive, which is what decoding into a fixed type would do.
     private nonisolated static func parseWebArchiveResources(_ data: Data) -> [Resource] {
-        // The `format:` out-parameter is an `UnsafeMutablePointer`, and no overload omits it —
-        // passing `nil` opts out of reading it back, hence `unsafe`.
-        guard let plist = try? unsafe PropertyListSerialization.propertyList(
-            from: data, format: nil
-        ) as? [String: Any] else {
+        guard let archive = try? PropertyListValue(data: data) else {
             return []
         }
 
         var resources: [Resource] = []
         var seen = Set<String>()
-        extractSubresources(from: plist, into: &resources, seen: &seen)
+        extractSubresources(from: archive, into: &resources, seen: &seen)
         return resources
     }
 
     private nonisolated static func extractSubresources(
-        from archive: [String: Any],
+        from archive: PropertyListValue,
         into resources: inout [Resource],
         seen: inout Set<String>
     ) {
-        if let subresources = archive["WebSubresources"] as? [[String: Any]] {
-            for item in subresources {
-                guard let urlString = item["WebResourceURL"] as? String,
-                      let data = item["WebResourceData"] as? Data,
-                      let mimeType = item["WebResourceMIMEType"] as? String,
-                      seen.insert(urlString).inserted,
-                      let url = URL(string: urlString)
-                else { continue }
+        for item in archive["WebSubresources"]?.array ?? [] {
+            guard let urlString = item["WebResourceURL"]?.string,
+                  let data = item["WebResourceData"]?.data,
+                  let mimeType = item["WebResourceMIMEType"]?.string,
+                  seen.insert(urlString).inserted,
+                  let url = URL(string: urlString)
+            else { continue }
 
-                var contentType = mimeType
-                if let encoding = item["WebResourceTextEncodingName"] as? String,
-                   !encoding.isEmpty, mimeType.hasPrefix("text/") {
-                    contentType = "\(mimeType); charset=\(encoding)"
-                }
-
-                resources.append(Resource(url: url, contentType: contentType, data: data))
+            var contentType = mimeType
+            if let encoding = item["WebResourceTextEncodingName"]?.string,
+               !encoding.isEmpty, mimeType.hasPrefix("text/") {
+                contentType = "\(mimeType); charset=\(encoding)"
             }
+
+            resources.append(Resource(url: url, contentType: contentType, data: data))
         }
 
-        if let subframes = archive["WebSubframeArchives"] as? [[String: Any]] {
-            for subframe in subframes {
-                extractSubresources(from: subframe, into: &resources, seen: &seen)
-            }
+        for subframe in archive["WebSubframeArchives"]?.array ?? [] {
+            extractSubresources(from: subframe, into: &resources, seen: &seen)
         }
     }
 }

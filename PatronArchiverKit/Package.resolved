@@ -1,5 +1,5 @@
 {
-  "originHash" : "6dfbafb58249d17ff6b6a780a494afa21c10d9ab81834ce811cf77593e45e037",
+  "originHash" : "ee25a8e9c002af0a4b9a1ffe9f7038a1921f7116dcbc0ca948212123f10b5e47",
   "pins" : [
     {
       "identity" : "swift-http-structured-headers",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "933538faa42c432d385f02e07df0ace7c5ecfc47",
         "version" : "1.7.0"
+      }
+    },
+    {
+      "identity" : "swift-property-list",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sinoru/swift-property-list.git",
+      "state" : {
+        "revision" : "332bf0076cb35054bdf9e468aa765400d3e5ef2f",
+        "version" : "0.0.1"
       }
     },
     {
@@ -24,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sinoru/swift-user-defaults-kit.git",
       "state" : {
-        "revision" : "23ed1f42fb63d2041729f5193a38d4d6a9dcc746",
-        "version" : "0.0.1"
+        "revision" : "0f5e2c3df3ec87214bac7066a708f3b6938b2a08",
+        "version" : "0.0.2"
       }
     }
   ],
