@@ -40,4 +40,4 @@ PDF, MHTML 파일, 미디어 등 모든 아카이빙된 콘텐츠는 사용자�
 
 ## 연락처
 
-본 개인정보 처리방침에 대한 문의 사항이 있으시면 [GitHub 저장소](https://github.com/sinoru/PatronArchiver/issues/new)에 이슈를 등록해 주세요.
+본 개인정보 처리방침에 대한 문의 사항이 있으시면 [GitHub 저장소](https://github.com/shizukusoft/PatronArchiver)에 이슈를 등록해 주세요.

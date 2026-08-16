@@ -5,21 +5,16 @@ struct TipJarSheet: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section {
-                    TipJarView()
+            TipJarView()
+                .navigationTitle("Tip Jar")
+                #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+                #endif
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { dismiss() }
+                    }
                 }
-            }
-            .formStyle(.grouped)
-            .navigationTitle("Tip Jar")
-            #if os(iOS)
-            .navigationBarTitleDisplayMode(.inline)
-            #endif
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
         }
         #if os(macOS)
         .frame(width: 350, height: 300)

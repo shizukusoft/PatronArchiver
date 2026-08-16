@@ -4,7 +4,7 @@ A macOS/iOS app that archives posts from patron platforms into MHTML + PDF + med
 
 ## Download
 
-[![Download on the App Store](https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg)](https://apps.apple.com/app/id6760197229)
+[![Download on the App Store](https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg)](https://apps.apple.com/app/patronarchiver/id6786290476)
 
 ## Supported Platforms
 
@@ -23,6 +23,14 @@ A macOS/iOS app that archives posts from patron platforms into MHTML + PDF + med
 ## Privacy
 
 PatronArchiver does not collect, transmit, or share any personal data. There are no analytics, advertising SDKs, or trackers. All archived content is stored exclusively on your device. The app uses an embedded `WKWebView` to access creator platform websites; cookies set during sign-in are stored locally within that web view and are sent only to their originating sites.
+
+## Support
+
+Need help or have a question? You can reach us in any of these ways:
+
+- **In-app** — Choose **Send Feedback…** in the app (Help menu on Mac; Settings → Feedback on iPhone and iPad). It opens a pre-addressed email with diagnostic information attached so we can help faster.
+- **Email** — Write to us at [support+PatronArchiver@shizukusoft.com](mailto:support+PatronArchiver@shizukusoft.com).
+- **GitHub Issues** — Report bugs or request features at [our issue tracker](https://github.com/shizukusoft/PatronArchiver/issues).
 
 ## Requirements
 

@@ -20,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Archiving a post with many images now uses far less memory
 - Saving to an external or network volume no longer writes every file twice
 - The app now runs as a hardened process, with enhanced security, pointer authentication and hardened memory allocations enabled
+- Migrated the support contact email and privacy policy hosting to the shizukusoft.com domain
+- Feedback email diagnostic logs now cover the whole process instead of only the app's own subsystems, capturing framework-level activity for easier diagnosis
 
 ### Fixed
 
@@ -196,16 +198,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adopted Swift 6.0 strict concurrency with MainActor isolation
 - Replaced glob-based URL matching with Swift Regex
 
-[Unreleased]: https://github.com/sinoru/PatronArchiver/compare/v1.1.1...HEAD
-[1.1.1]: https://github.com/sinoru/PatronArchiver/compare/v1.1...v1.1.1
-[1.1]: https://github.com/sinoru/PatronArchiver/compare/v1.0.0+rc.3...v1.1
-[1.0.0+rc.3]: https://github.com/sinoru/PatronArchiver/compare/v1.0.0+rc.2...v1.0.0+rc.3
-[1.0.0+rc.2]: https://github.com/sinoru/PatronArchiver/compare/v1.0.0+rc.1...v1.0.0+rc.2
-[1.0.0+rc.1]: https://github.com/sinoru/PatronArchiver/compare/v1.0.0+alpha.7...v1.0.0+rc.1
-[1.0.0+alpha.7]: https://github.com/sinoru/PatronArchiver/compare/v1.0.0+alpha.6...v1.0.0+alpha.7
-[1.0.0+alpha.6]: https://github.com/sinoru/PatronArchiver/compare/v1.0.0+alpha.5...v1.0.0+alpha.6
-[1.0.0+alpha.5]: https://github.com/sinoru/PatronArchiver/compare/v1.0.0+alpha.4...v1.0.0+alpha.5
-[1.0.0+alpha.4]: https://github.com/sinoru/PatronArchiver/compare/v1.0.0+alpha.3...v1.0.0+alpha.4
-[1.0.0+alpha.3]: https://github.com/sinoru/PatronArchiver/compare/v1.0.0+alpha.2...v1.0.0+alpha.3
-[1.0.0+alpha.2]: https://github.com/sinoru/PatronArchiver/compare/v1.0.0+alpha.1...v1.0.0+alpha.2
-[1.0.0+alpha.1]: https://github.com/sinoru/PatronArchiver/releases/tag/v1.0.0+alpha.1
+[Unreleased]: https://github.com/shizukusoft/PatronArchiver/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/shizukusoft/PatronArchiver/compare/v1.1...v1.1.1
+[1.1]: https://github.com/shizukusoft/PatronArchiver/compare/v1.0.0+rc.3...v1.1
+[1.0.0+rc.3]: https://github.com/shizukusoft/PatronArchiver/compare/v1.0.0+rc.2...v1.0.0+rc.3
+[1.0.0+rc.2]: https://github.com/shizukusoft/PatronArchiver/compare/v1.0.0+rc.1...v1.0.0+rc.2
+[1.0.0+rc.1]: https://github.com/shizukusoft/PatronArchiver/compare/v1.0.0+alpha.7...v1.0.0+rc.1
+[1.0.0+alpha.7]: https://github.com/shizukusoft/PatronArchiver/compare/v1.0.0+alpha.6...v1.0.0+alpha.7
+[1.0.0+alpha.6]: https://github.com/shizukusoft/PatronArchiver/compare/v1.0.0+alpha.5...v1.0.0+alpha.6
+[1.0.0+alpha.5]: https://github.com/shizukusoft/PatronArchiver/compare/v1.0.0+alpha.4...v1.0.0+alpha.5
+[1.0.0+alpha.4]: https://github.com/shizukusoft/PatronArchiver/compare/v1.0.0+alpha.3...v1.0.0+alpha.4
+[1.0.0+alpha.3]: https://github.com/shizukusoft/PatronArchiver/compare/v1.0.0+alpha.2...v1.0.0+alpha.3
+[1.0.0+alpha.2]: https://github.com/shizukusoft/PatronArchiver/compare/v1.0.0+alpha.1...v1.0.0+alpha.2
+[1.0.0+alpha.1]: https://github.com/shizukusoft/PatronArchiver/releases/tag/v1.0.0+alpha.1

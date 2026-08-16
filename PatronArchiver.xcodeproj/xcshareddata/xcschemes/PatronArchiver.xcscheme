@@ -79,6 +79,12 @@
             ReferencedContainer = "container:PatronArchiver.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <CommandLineArguments>
+         <CommandLineArgument
+            argument = "-DemoMode"
+            isEnabled = "NO">
+         </CommandLineArgument>
+      </CommandLineArguments>
       <StoreKitConfigurationFileReference
          identifier = "../../PatronArchiver/PatronArchiver.storekit">
       </StoreKitConfigurationFileReference>
