@@ -42,19 +42,15 @@ patreon,fanbox,pixiv,subscribestar,archive,backup,offline,PDF,MHTML,creator
 
 ### Support URL
 
-https://github.com/sinoru/PatronArchiver/issues/new
-
-#### Marketing URL
-
-https://github.com/sinoru/PatronArchiver
+https://github.com/shizukusoft/PatronArchiver
 
 #### Privacy Policy URL
 
-https://patronarchiver.sinoru.dev/legal/privacy
+https://patronarchiver.shizukusoft.com/legal/privacy
 
 #### Copyright
 
-2026 Kang Jaehong
+2026 ShizukuSoft LLC.
 
 ### Release Notes
 
@@ -105,19 +101,15 @@ patreon,fanbox,pixiv,subscribestar,아카이브,백업,오프라인,PDF,MHTML,�
 
 ### Support URL
 
-https://github.com/sinoru/PatronArchiver/issues/new
-
-#### Marketing URL
-
-https://github.com/sinoru/PatronArchiver
+https://github.com/shizukusoft/PatronArchiver
 
 #### Privacy Policy URL
 
-https://patronarchiver.sinoru.dev/ko/legal/privacy
+https://patronarchiver.shizukusoft.com/legal/privacy
 
 #### Copyright
 
-2026 Kang Jaehong
+2026 ShizukuSoft LLC.
 
 ### Release Notes
 
@@ -168,19 +160,15 @@ patreon,fanbox,pixiv,subscribestar,アーカイブ,バックアップ,オフラ�
 
 ### Support URL
 
-https://github.com/sinoru/PatronArchiver/issues/new
-
-#### Marketing URL
-
-https://github.com/sinoru/PatronArchiver
+https://github.com/shizukusoft/PatronArchiver
 
 #### Privacy Policy URL
 
-https://patronarchiver.sinoru.dev/legal/privacy
+https://patronarchiver.shizukusoft.com/legal/privacy
 
 #### Copyright
 
-2026 Kang Jaehong
+2026 ShizukuSoft LLC.
 
 ### Release Notes
 

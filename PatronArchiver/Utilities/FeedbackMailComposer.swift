@@ -11,13 +11,8 @@ import SwiftUI
 // MARK: - FeedbackMailComposer
 
 struct FeedbackMailComposer {
-    static let emailAddress = "PatronArchiver@sinoru.dev"
+    static let emailAddress = "support+PatronArchiver@shizukusoft.com"
     static let subject = "PatronArchiver Feedback"
-
-    private static let logSubsystems = [
-        "com.shizukusoft.PatronArchiver",
-        "com.shizukusoft.PatronArchiver.PatronArchiverKit",
-    ]
 
     static func diagnosticBody() -> String {
         let appVersion = Bundle.main.infoDictionary?[
@@ -57,16 +52,8 @@ struct FeedbackMailComposer {
         let startDate = Date.now.addingTimeInterval(-30 * 60)
         let position = store.position(date: startDate)
 
-        let subsystemPredicates = logSubsystems.map {
-            NSPredicate(format: "subsystem == %@", $0)
-        }
-        let predicate = NSCompoundPredicate(
-            orPredicateWithSubpredicates: subsystemPredicates
-        )
-
         guard let entries = try? store.getEntries(
-            at: position,
-            matching: predicate
+            at: position
         ) else {
             return nil
         }

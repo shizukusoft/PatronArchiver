@@ -4,7 +4,7 @@ A macOS/iOS app that archives posts from patron platforms into MHTML + PDF + med
 
 ## Download
 
-[![Download on the App Store](https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg)](https://apps.apple.com/app/id6760197229)
+[![Download on the App Store](https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg)](https://apps.apple.com/app/patronarchiver/id6786290476)
 
 ## Supported Platforms
 
