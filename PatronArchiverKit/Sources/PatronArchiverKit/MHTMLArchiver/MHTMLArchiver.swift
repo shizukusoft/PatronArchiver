@@ -24,11 +24,12 @@ struct MHTMLArchiver {
         self.urlSession = urlSession
     }
 
-    /// Generates an MHTML archive of the web view's current page.
+    /// Writes an MHTML archive of the web view's current page to `url`.
     ///
-    /// - Returns: The MHTML data.
-    /// - Throws: `MHTMLError` if the page URL is unavailable or resource collection fails.
-    func archive() async throws -> Data {
+    /// - Parameter url: Where to write the archive. Any existing file there is replaced.
+    /// - Throws: `MHTMLError` if the page URL is unavailable, the destination cannot be written, or
+    ///   resource collection fails.
+    func write(to url: URL) async throws {
         guard let pageURL = webView.url else {
             throw MHTMLError.noPageURL
         }
@@ -39,7 +40,7 @@ struct MHTMLArchiver {
             let webArchiveData: Data = try await withCheckedThrowingContinuation { continuation in
                 webView.createWebArchiveData { continuation.resume(with: $0) }
             }
-            let cachedResources = Self.parseWebArchiveResources(webArchiveData)
+            let cachedResources = await Self.parseWebArchiveResources(webArchiveData)
             cache = Dictionary(
                 cachedResources.map { ($0.url.absoluteString, $0) },
                 uniquingKeysWith: { first, _ in first }
@@ -74,7 +75,7 @@ struct MHTMLArchiver {
 
         // 4. CSS 2nd pass: extract sub-resource URLs, resolve from cache or download
         let resolvedURLs = Set(resources.map(\.url.absoluteString))
-        let cssSubresourceURLs = Self.extractCSSSubresourceURLs(from: resources)
+        let cssSubresourceURLs = await Self.extractCSSSubresourceURLs(from: resources)
             .filter { !resolvedURLs.contains($0.absoluteString) }
 
         var cssResources: [Resource] = []
@@ -98,11 +99,12 @@ struct MHTMLArchiver {
         let allResources = resources + cssResources + iframeResources
 
         // 6. Assemble MHTML
-        return await Self.assembleMHTML(
+        try await Self.writeMHTML(
             pageURL: pageURL,
             title: collectResult.title,
             html: collectResult.html,
-            resources: allResources
+            resources: allResources,
+            to: url
         )
     }
 }
@@ -312,7 +314,12 @@ extension MHTMLArchiver {
     /// wrong kind answers `nil` here instead of needing a cast to say so. It also keeps the reading
     /// tolerant — a webarchive is WebKit's to write, and one malformed entry should cost that entry
     /// rather than the whole archive, which is what decoding into a fixed type would do.
-    private nonisolated static func parseWebArchiveResources(_ data: Data) -> [Resource] {
+    ///
+    /// `@concurrent` rather than plain `nonisolated`: the walk below parses every sub-resource the
+    /// page loaded out of a binary plist, and ``archive()`` is main-actor isolated, so under
+    /// SE-0461 a `nonisolated` function would inherit that actor and do it on the main thread.
+    @concurrent
+    private static func parseWebArchiveResources(_ data: Data) async -> [Resource] {
         guard let archive = try? PropertyListValue(data: data) else {
             return []
         }
@@ -323,6 +330,8 @@ extension MHTMLArchiver {
         return resources
     }
 
+    /// Stays synchronous — it recurses through `inout` accumulators, and its only caller already
+    /// runs off the main actor, so there is nothing left for an isolation change to buy here.
     private nonisolated static func extractSubresources(
         from archive: PropertyListValue,
         into resources: inout [Resource],
@@ -452,7 +461,10 @@ extension MHTMLArchiver {
 // MARK: - CSS Subresource Extraction (2nd Pass)
 
 extension MHTMLArchiver {
-    private nonisolated static func extractCSSSubresourceURLs(from resources: [Resource]) -> [URL] {
+    /// `@concurrent` for the same reason as ``parseWebArchiveResources(_:)``: this runs a regex over
+    /// the full text of every stylesheet the page pulled in, which is not main-thread work.
+    @concurrent
+    private static func extractCSSSubresourceURLs(from resources: [Resource]) async -> [URL] {
         let cssURLPattern = /url\(["']?([^"')]+)["']?\)/
 
         var discovered: [URL] = []
@@ -478,20 +490,56 @@ extension MHTMLArchiver {
 // MARK: - MHTML Assembly
 
 extension MHTMLArchiver {
+    /// Writes the assembled archive straight to `url`, one part at a time.
+    ///
+    /// Streamed rather than returned as `Data` because the finished archive is the largest thing a
+    /// job holds — every resource on the page, with the binary ones grown by a third in base64. Each
+    /// part is encoded, written, and let go, so only one resource is ever encoded at a time.
     @concurrent
-    private static func assembleMHTML(
+    private static func writeMHTML(
         pageURL: URL,
         title: String,
         html: String,
-        resources: [Resource]
-    ) async -> Data {
+        resources: [Resource],
+        to url: URL
+    ) async throws {
         let boundary = "----=_Part_\(UUID().uuidString)"
         let dateString = MHTMLDateFormatter.shared.string(from: Date())
 
-        var mhtml = Data()
+        // Created empty and exclusively, only so the handle below has something to open. It has to
+        // refuse an existing file rather than truncate one: media downloads land in this same
+        // directory while this runs, and a name they happen to share would otherwise be overwritten
+        // without a trace. `FileManager.createFile` cannot express that — it reports success for a
+        // file it just overwrote — hence the write.
+        try Data().write(to: url, options: .withoutOverwriting)
+        let handle = try FileHandle(forWritingTo: url)
+        // The close on the happy path is an explicit `try` below, because a volume that only
+        // reports a write failure when the handle is closed — a network mount, or a disk that
+        // filled up — would otherwise have a truncated archive pass for a finished one. This is
+        // the fallback for the paths that threw on the way there and have an error already.
+        var isClosed = false
+        defer {
+            if !isClosed { try? handle.close() }
+        }
 
+        // Headers and boundaries are small and adjacent, so they accumulate here and go out with
+        // the part body that follows rather than as a write apiece.
+        var pending = Data()
         func append(_ string: String) {
-            mhtml.append(contentsOf: string.utf8)
+            pending.append(contentsOf: string.utf8)
+        }
+        // The body goes out on its own rather than through `pending`. Appending it there would put
+        // a second copy of an already-encoded resource — base64 of a large image is bigger than the
+        // image — alongside the first, and `keepingCapacity` would then hold onto that size for the
+        // rest of the archive. Kept as it is, the retained buffer only ever fits a part header.
+        func write(_ body: Data) throws {
+            if !pending.isEmpty {
+                try handle.write(contentsOf: pending)
+                pending.removeAll(keepingCapacity: true)
+            }
+            if !body.isEmpty {
+                try handle.write(contentsOf: body)
+            }
         }
 
         // MHTML header (RFC 2557 + Chromium conventions)
@@ -509,7 +557,7 @@ extension MHTMLArchiver {
         append("Content-Transfer-Encoding: quoted-printable\r\n")
         append("Content-Location: \(pageURL.absoluteString)\r\n")
         append("\r\n")
-        mhtml.append(quotedPrintableEncode(html))
+        try write(quotedPrintableEncode(html))
         append("\r\n")
 
         // Resource parts
@@ -523,19 +571,21 @@ extension MHTMLArchiver {
                 append("Content-Transfer-Encoding: quoted-printable\r\n")
                 append("Content-Location: \(resource.url.absoluteString)\r\n")
                 append("\r\n")
-                mhtml.append(quotedPrintableEncode(text))
+                try write(quotedPrintableEncode(text))
             } else {
                 append("Content-Transfer-Encoding: base64\r\n")
                 append("Content-Location: \(resource.url.absoluteString)\r\n")
                 append("\r\n")
-                mhtml.append(resource.data.base64EncodedData(options: .lineLength76Characters))
+                try write(resource.data.base64EncodedData(options: .lineLength76Characters))
             }
             append("\r\n")
         }
 
         append("--\(boundary)--\r\n")
+        try write(Data())
 
-        return mhtml
+        try handle.close()
+        isClosed = true
     }
 }
 

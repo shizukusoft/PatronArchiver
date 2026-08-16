@@ -41,9 +41,10 @@ enum MediaDownloader {
                         index: index
                     )
 
-                    if FileManager.default.fileExists(atPath: destinationURL.path) {
-                        try FileManager.default.removeItem(at: destinationURL)
-                    }
+                    // Left to fail if something is already there. The staging directory is new for
+                    // every job, so nothing in it is stale enough to be worth clearing — a name
+                    // that is taken means this download collided with the page dump or with
+                    // another item, and losing a file quietly is worse than failing the job.
                     try FileManager.default.moveItem(at: tempURL, to: destinationURL)
 
                     return DownloadedMedia(

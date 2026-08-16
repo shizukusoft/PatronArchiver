@@ -17,12 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Settings are shared by every window and the Settings scene, so a change applies everywhere at once
 - Render Width now sets a 16:9 canvas, so the render height scales with the width
 - Raised the minimum build requirement to Xcode 26.4 (Swift 6.3)
+- Archiving a post with many images now uses far less memory
+- Saving to an external or network volume no longer writes every file twice
 
 ### Fixed
 
 - Cancelling a job while its page was still loading left the job hanging instead of finishing
 - Temporary files from a failed job were left behind instead of being cleaned up
 - Queued jobs stopped starting while another job waited for a replace confirmation
+- The app froze while a job was being saved
+- A cancelled job still saved its files, or came back as a replace prompt
+- A job retried after being cancelled mid-save never started
 
 ## [1.1.1] - 2026-06-14
 
