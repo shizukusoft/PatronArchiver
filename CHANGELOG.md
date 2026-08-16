@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Raised the minimum build requirement to Xcode 26.4 (Swift 6.3)
 - Archiving a post with many images now uses far less memory
 - Saving to an external or network volume no longer writes every file twice
+- The app now runs as a hardened process, with enhanced security, pointer authentication and hardened memory allocations enabled
 
 ### Fixed
 
