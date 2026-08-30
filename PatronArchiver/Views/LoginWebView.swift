@@ -76,17 +76,20 @@ private struct LoginWebViewRepresentable {
             onLoginDetected: onLoginDetected
         )
     }
+
+    fileprivate func makeWebView(coordinator: Coordinator) -> WKWebView {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = websiteDataStore
+        let webView = WKWebView(frame: .zero, configuration: configuration)
+        coordinator.load(url, in: webView)
+        return webView
+    }
 }
 
 #if canImport(AppKit)
 extension LoginWebViewRepresentable: NSViewRepresentable {
     func makeNSView(context: Context) -> WKWebView {
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = websiteDataStore
-        let webView = WKWebView(frame: .zero, configuration: configuration)
-        context.coordinator.startObserving()
-        context.coordinator.load(url, in: webView)
-        return webView
+        makeWebView(coordinator: context.coordinator)
     }
 
     func updateNSView(_ nsView: WKWebView, context: Context) {
@@ -96,12 +99,7 @@ extension LoginWebViewRepresentable: NSViewRepresentable {
 #elseif canImport(UIKit)
 extension LoginWebViewRepresentable: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = websiteDataStore
-        let webView = WKWebView(frame: .zero, configuration: configuration)
-        context.coordinator.startObserving()
-        context.coordinator.load(url, in: webView)
-        return webView
+        makeWebView(coordinator: context.coordinator)
     }
 
     func updateUIView(_ uiView: WKWebView, context: Context) {
@@ -111,12 +109,15 @@ extension LoginWebViewRepresentable: UIViewRepresentable {
 #endif
 
 extension LoginWebViewRepresentable {
-    final class Coordinator: NSObject, WKHTTPCookieStoreObserver {
+    final class Coordinator {
         private var providerType: any PatronServiceProviding.Type
-        let websiteDataStore: WKWebsiteDataStore
-        let onLoginDetected: (() -> Void)?
-        private var hasDetectedLogin = false
+        private let websiteDataStore: WKWebsiteDataStore
+        private let onLoginDetected: (() -> Void)?
+        private var detectionTask: Task<Void, Never>?
         private var lastRequestedURL: URL?
+
+        /// How often the cookie store is checked for the provider's sign-in.
+        private static let detectionInterval = Duration.milliseconds(500)
 
         init(
             providerType: any PatronServiceProviding.Type,
@@ -126,14 +127,11 @@ extension LoginWebViewRepresentable {
             self.providerType = providerType
             self.websiteDataStore = websiteDataStore
             self.onLoginDetected = onLoginDetected
-        }
-
-        func startObserving() {
-            websiteDataStore.httpCookieStore.add(self)
+            startDetectingLogin()
         }
 
         isolated deinit {
-            websiteDataStore.httpCookieStore.remove(self)
+            detectionTask?.cancel()
         }
 
         func load(_ url: URL, in webView: WKWebView) {
@@ -148,20 +146,32 @@ extension LoginWebViewRepresentable {
         ) {
             if ObjectIdentifier(newProviderType) != ObjectIdentifier(providerType) {
                 providerType = newProviderType
-                hasDetectedLogin = false
+                startDetectingLogin()
             }
             if lastRequestedURL != url {
                 load(url, in: webView)
             }
         }
 
-        func cookiesDidChange(in cookieStore: WKHTTPCookieStore) {
-            guard !hasDetectedLogin else { return }
-            Task {
-                let allCookies = await cookieStore.allCookies()
-                guard providerType.isLoggedIn(cookies: allCookies) else { return }
-                hasDetectedLogin = true
-                onLoginDetected?()
+        /// Watches the cookie store until the provider reports a completed sign-in.
+        ///
+        /// Polling rather than an event: `WKHTTPCookieStoreObserver` never fires for cookies the
+        /// network process sets while loading a page, and the navigation callbacks all complete
+        /// before the sign-in cookie has propagated to `WKHTTPCookieStore` — a single check driven
+        /// by either one misses the sign-in and nothing comes along afterwards to re-check.
+        private func startDetectingLogin() {
+            detectionTask?.cancel()
+            detectionTask = Task { [weak self] in
+                while !Task.isCancelled {
+                    guard let self else { return }
+                    let cookies = await websiteDataStore.httpCookieStore.allCookies()
+                    guard !Task.isCancelled else { return }
+                    if providerType.isLoggedIn(cookies: cookies) {
+                        onLoginDetected?()
+                        return
+                    }
+                    try? await Task.sleep(for: Self.detectionInterval)
+                }
             }
         }
     }
