@@ -86,7 +86,11 @@ struct SettingsView: View {
                     let status = accountStatuses[entry.identifier] ?? .unknown
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
+                            // Wins the space contest against the status text: when the row runs
+                            // out of width, the status wraps ("로그인되지 않음" breaks fine at its
+                            // word boundary) instead of the site name breaking mid-word.
                             Label(entry.identifier, systemImage: "globe")
+                                .layoutPriority(1)
                             Spacer()
                             switch status {
                             case .unknown, .verifying:
@@ -149,7 +153,11 @@ struct SettingsView: View {
                 HStack {
                     Text("Scroll Delay")
                     Spacer()
+                    // `labelsHidden()`: in a macOS grouped Form the text field's title is
+                    // rendered as a leading label, duplicating the "ms" unit suffix that follows.
+                    // iOS shows the title only as placeholder text, which the modifier keeps.
                     TextField("ms", value: $scrollDelay, format: .number)
+                        .labelsHidden()
                         .frame(width: 80)
                         #if os(macOS)
                         .textFieldStyle(.roundedBorder)
