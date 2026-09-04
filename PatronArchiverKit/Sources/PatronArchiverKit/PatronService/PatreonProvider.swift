@@ -87,68 +87,89 @@ struct PatreonProvider: PatronServiceProviding {
         }
     }
 
+    // MARK: - Post bootstrap
+
+    /// JavaScript defining `loadPost()`, which resolves to the JSON:API envelope (`{ data, included }`)
+    /// for the current post, or `null` when it cannot be fetched.
+    ///
+    /// The post pages are rendered by the Next.js App Router, so there is no `__NEXT_DATA__` to
+    /// read the post from; the envelope is fetched from the site's own JSON:API instead. The
+    /// request is same-origin from the page context, so the session cookies ride along and paid
+    /// posts resolve exactly as they do for the page itself.
+    private static let postLoaderScript = """
+        const postID = (location.pathname.match(/-(\\d+)[^\\/]*$/) || [])[1];
+
+        async function loadPost() {
+            if (!postID) return null;
+            const params = new URLSearchParams({
+                include: 'media,images,attachments_media,campaign,user_defined_tags',
+                'fields[post]': 'title,content_json_string,published_at,created_at,edited_at,post_metadata',
+                'fields[media]': 'download_url,image_urls,file_name',
+                'fields[campaign]': 'name',
+                'json-api-version': '1.0',
+            });
+            const response = await fetch(`/api/posts/${postID}?${params}`, { credentials: 'same-origin' });
+            if (!response.ok) return null;
+            return await response.json();
+        }
+        """
+
     func extractMediaURLs(in webView: WKWebView) async throws -> [MediaItem] {
-        let script = """
-        (() => {
-            const media = [];
+        let script = Self.postLoaderScript + """
 
-            const nextData = document.getElementById('__NEXT_DATA__');
-            if (nextData) {
+        const media = [];
+        const post = await loadPost();
+        if (post?.data && post?.included) {
+            const mediaById = {};
+            for (const item of post.included) {
+                if (item.type === 'media' && item.attributes) mediaById[item.id] = item;
+            }
+            const urlOf = (item) => item.attributes.download_url || item.attributes.image_urls?.original || item.attributes.image_urls?.url;
+
+            // 1. Gallery/header images in image_order
+            const imageOrder = post.data.attributes?.post_metadata?.image_order || [];
+            const imageIds = imageOrder.length > 0
+                ? imageOrder
+                : (post.data.relationships?.images?.data || []).map(d => d.id);
+            for (const id of imageIds) {
+                const item = mediaById[id];
+                if (item) {
+                    media.push({ url: urlOf(item), type: 'image', filename: item.attributes.file_name || null, downloadAttribute: null });
+                }
+            }
+
+            // 2. Inline images from content_json_string (in document order)
+            const contentJson = post.data.attributes?.content_json_string;
+            if (contentJson) {
                 try {
-                    const data = JSON.parse(nextData.textContent);
-                    const post = data?.props?.pageProps?.bootstrapEnvelope?.pageBootstrap?.post;
-                    if (post?.data && post?.included) {
-                        const mediaById = {};
-                        for (const item of post.included) {
-                            if (item.type === 'media' && item.attributes) mediaById[item.id] = item;
-                        }
-                        const urlOf = (item) => item.attributes.download_url || item.attributes.image_urls?.original || item.attributes.image_urls?.url;
-
-                        // 1. Gallery/header images in image_order
-                        const imageOrder = post.data.attributes?.post_metadata?.image_order || [];
-                        const imageIds = imageOrder.length > 0
-                            ? imageOrder
-                            : (post.data.relationships?.images?.data || []).map(d => d.id);
-                        for (const id of imageIds) {
-                            const item = mediaById[id];
-                            if (item) {
-                                media.push({ url: urlOf(item), type: 'image', filename: item.attributes.file_name || null, downloadAttribute: null });
-                            }
-                        }
-
-                        // 2. Inline images from content_json_string (in document order)
-                        const contentJson = post.data.attributes?.content_json_string;
-                        if (contentJson) {
-                            const content = JSON.parse(contentJson);
-                            const walk = (nodes) => {
-                                for (const node of (nodes || [])) {
-                                    if (node.type === 'image' && node.attrs?.src) {
-                                        if (!media.some(m => m.url === node.attrs.src)) {
-                                            media.push({ url: node.attrs.src, type: 'image', filename: null, downloadAttribute: null });
-                                        }
-                                    }
-                                    if (node.content) walk(node.content);
+                    const content = JSON.parse(contentJson);
+                    const walk = (nodes) => {
+                        for (const node of (nodes || [])) {
+                            if (node.type === 'image' && node.attrs?.src) {
+                                if (!media.some(m => m.url === node.attrs.src)) {
+                                    media.push({ url: node.attrs.src, type: 'image', filename: null, downloadAttribute: null });
                                 }
-                            };
-                            walk(content.content);
-                        }
-
-                        // 3. Attachments in attachments_media order
-                        const attachmentIds = (post.data.relationships?.attachments_media?.data || []).map(d => d.id);
-                        for (const id of attachmentIds) {
-                            const item = mediaById[id];
-                            if (item) {
-                                media.push({ url: urlOf(item), type: 'archive', filename: item.attributes.file_name || null, downloadAttribute: null });
                             }
+                            if (node.content) walk(node.content);
                         }
-                    }
+                    };
+                    walk(content.content);
                 } catch {}
             }
 
-            return media;
-        })()
+            // 3. Attachments in attachments_media order
+            const attachmentIds = (post.data.relationships?.attachments_media?.data || []).map(d => d.id);
+            for (const id of attachmentIds) {
+                const item = mediaById[id];
+                if (item) {
+                    media.push({ url: urlOf(item), type: 'archive', filename: item.attributes.file_name || null, downloadAttribute: null });
+                }
+            }
+        }
+
+        return media;
         """
-        guard let array = try await evaluateJavaScript(script, in: webView) as? [[String: Any]] else {
+        guard let array = try await callAsyncJavaScript(script, in: webView) as? [[String: Any]] else {
             return []
         }
         let referrerURL = webView.url
@@ -156,64 +177,55 @@ struct PatreonProvider: PatronServiceProviding {
     }
 
     func extractMetadata(in webView: WKWebView, timeZone: TimeZone?) async throws -> PostMetadata {
-        let script = """
-        (() => {
-            const meta = {};
+        let script = Self.postLoaderScript + """
 
-            const nextData = document.getElementById('__NEXT_DATA__');
-            if (nextData) {
-                try {
-                    const data = JSON.parse(nextData.textContent);
-                    const post = data?.props?.pageProps?.bootstrapEnvelope?.pageBootstrap?.post;
-                    if (post?.data?.attributes) {
-                        const attrs = post.data.attributes;
-                        meta.postID = post.data.id || '';
-                        meta.title = attrs.title || '';
-                        meta.createdAt = attrs.published_at || attrs.created_at || '';
-                        meta.modifiedAt = attrs.edited_at || null;
+        const meta = {};
+        const post = await loadPost();
+        if (post?.data?.attributes) {
+            const attrs = post.data.attributes;
+            meta.postID = post.data.id || '';
+            meta.title = attrs.title || '';
+            meta.createdAt = attrs.published_at || attrs.created_at || '';
+            meta.modifiedAt = attrs.edited_at || null;
 
-                        const tagData = post.data.relationships?.user_defined_tags?.data || [];
-                        meta.tags = tagData
-                            .map(t => (t.id || '').replace('user_defined;', ''))
-                            .filter(t => t);
-                    }
-                    if (post?.included) {
-                        for (const item of post.included) {
-                            if (item.type === 'campaign' && item.attributes?.name) {
-                                meta.authorName = item.attributes.name;
-                                break;
-                            }
-                        }
-                    }
-                } catch {}
+            const tagData = post.data.relationships?.user_defined_tags?.data || [];
+            meta.tags = tagData
+                .map(t => (t.id || '').replace('user_defined;', ''))
+                .filter(t => t);
+        }
+        if (post?.included) {
+            for (const item of post.included) {
+                if (item.type === 'campaign' && item.attributes?.name) {
+                    meta.authorName = item.attributes.name;
+                    break;
+                }
             }
+        }
 
-            // Fallback: DOM scraping
-            if (!meta.title) {
-                const titleEl = document.querySelector('[data-tag="post-title"]');
-                meta.title = titleEl?.textContent?.trim() || document.title;
-            }
-            if (!meta.authorName) {
-                const authorEl = document.querySelector('[data-tag="post-card"] a[href*="patreon.com/"] > h3');
-                meta.authorName = authorEl?.textContent?.trim() || '';
-            }
-            if (!meta.postID) {
-                const match = location.pathname.match(/-(\\d+)(?:[^\\/]*)$/);
-                meta.postID = match ? match[1] : '';
-            }
-            if (!meta.tags || !meta.tags.length) {
-                meta.tags = [];
-                document.querySelectorAll('a[data-tag="post-tag"] p').forEach(p => {
-                    const tag = p.textContent?.trim();
-                    if (tag) meta.tags.push(tag);
-                });
-            }
-            if (!meta.createdAt) meta.createdAt = new Date().toISOString();
+        // Fallback: DOM scraping
+        if (!meta.title) {
+            const titleEl = document.querySelector('[data-tag="post-title"]');
+            meta.title = titleEl?.textContent?.trim() || document.title;
+        }
+        if (!meta.authorName) {
+            const authorEl = document.querySelector('[data-tag="post-card"] a[href*="patreon.com/"] > h3');
+            meta.authorName = authorEl?.textContent?.trim() || '';
+        }
+        if (!meta.postID) {
+            meta.postID = postID || '';
+        }
+        if (!meta.tags || !meta.tags.length) {
+            meta.tags = [];
+            document.querySelectorAll('a[data-tag="post-tag"] p').forEach(p => {
+                const tag = p.textContent?.trim();
+                if (tag) meta.tags.push(tag);
+            });
+        }
+        if (!meta.createdAt) meta.createdAt = new Date().toISOString();
 
-            return meta;
-        })()
+        return meta;
         """
-        guard let dict = try await evaluateJavaScript(script, in: webView) as? [String: Any] else {
+        guard let dict = try await callAsyncJavaScript(script, in: webView) as? [String: Any] else {
             throw ProviderError.metadataExtractionFailed
         }
 

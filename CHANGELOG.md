@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The app froze while a job was being saved
 - A cancelled job still saved its files, or came back as a replace prompt
 - A job retried after being cancelled mid-save never started
+- Patreon posts archived with no images or attachments after the site stopped embedding post data in the page
 
 ## [1.1.1] - 2026-06-14
 
