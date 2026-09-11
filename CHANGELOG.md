@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The app now runs as a hardened process, with enhanced security, pointer authentication and hardened memory allocations enabled
 - Migrated the support contact email and privacy policy hosting to the shizukusoft.com domain
 - Feedback email diagnostic logs now cover the whole process instead of only the app's own subsystems, capturing framework-level activity for easier diagnosis
+- Submitted URLs are now resolved with the same User-Agent the archiver uses to load pages
 
 ### Fixed
 
