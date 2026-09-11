@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 import UniformTypeIdentifiers
 import WebKit
 
@@ -128,12 +129,11 @@ enum MediaDownloader {
     }
 }
 
-private final class RedirectCollector: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
-    private let lock = NSLock()
-    private var _urls: [URL] = []
+private final class RedirectCollector: NSObject, URLSessionTaskDelegate, Sendable {
+    private let urls = Mutex<[URL]>([])
 
     var redirectedURLs: [URL] {
-        lock.withLock { _urls }
+        urls.withLock { $0 }
     }
 
     // Workaround for a SILGen crash while emitting the ObjC thunk for an `@objc`-exposed
@@ -148,7 +148,7 @@ private final class RedirectCollector: NSObject, URLSessionTaskDelegate, @unchec
         newRequest request: URLRequest
     ) async -> URLRequest? {
         if let url = request.url {
-            lock.withLock { _urls.append(url) }
+            urls.withLock { $0.append(url) }
         }
         return request
     }
