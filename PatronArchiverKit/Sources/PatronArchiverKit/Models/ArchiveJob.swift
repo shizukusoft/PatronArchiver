@@ -10,7 +10,7 @@ public final class ArchiveJob: Identifiable {
     public internal(set) var metadata: PostMetadata?
     var mediaItems: [MediaItem]
     public internal(set) var progress: Progress
-    var pendingSave: StorageManager.PreparedSave?
+    var pendingSave: PatronArchiver.PreparedSave?
 
     init(id: UUID = UUID(), inputURL: URL, provider: (any PatronServiceProviding)? = nil) {
         self.id = id

@@ -1,13 +1,90 @@
 import Foundation
 import OSLog
 
-enum StorageManager {
-    private static let logger = Logger(
-        subsystem: Logger.moduleSubsystem,
-        category: "StorageManager"
-    )
+// MARK: - Storage
 
-    private static let dateFormatter: DateFormatter = {
+private let logger = Logger(subsystem: Logger.moduleSubsystem, category: "PatronArchiver")
+
+extension PatronArchiver {
+    /// A save whose files are staged and attributed, waiting to be moved into place.
+    struct PreparedSave: Sendable {
+        let stagingDirectory: URL
+        let finalDirectory: URL
+        /// The security-scoped directory the other two sit under.
+        ///
+        /// Carried along because staging lives on the destination's volume, so discarding it needs
+        /// the same access the save was made under, and this is the only URL that can be asked for
+        /// it — `finalDirectory` is a path beneath the bookmark, not the bookmark.
+        let baseDirectory: URL
+
+        /// What committing a staged save turned out to do.
+        enum CommitResult {
+            case committed
+            /// Something was already at the destination. The staged files are untouched, and
+            /// committing again with `overwrite: true` is what replaces it.
+            case destinationExists
+        }
+
+        // MARK: Phase 2: Move staging to final location
+
+        /// Moves the staged save into place.
+        ///
+        /// Nothing is asked about the destination beforehand. `moveItem` already refuses to
+        /// overwrite, so the move *is* the check — and one that cannot be raced, unlike looking
+        /// first and moving after. Replacement is reached only when that move reports a collision,
+        /// which also means a destination that disappeared while the user was deciding is simply
+        /// moved into, rather than failing an overwrite that no longer has anything to overwrite.
+        @concurrent
+        func commit(overwrite: Bool) async throws -> CommitResult {
+            let fileManager = FileManager.default
+
+            logger.info(
+                "Committing save to: \(finalDirectory.path(), privacy: .private), overwrite: \(overwrite)"
+            )
+
+            // Ensure parent (author) directory exists
+            try fileManager.createDirectory(
+                at: finalDirectory.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+
+            do {
+                try fileManager.moveItem(at: stagingDirectory, to: finalDirectory)
+            } catch let error as CocoaError where error.code == .fileWriteFileExists {
+                guard overwrite else {
+                    logger.info("Destination is taken, leaving staging for the user to decide on")
+                    return .destinationExists
+                }
+                // `usingNewMetadataOnly` because the staging directory carries the tags and content
+                // dates this save just set; the default would restore the replaced folder's
+                // instead. The replacement is atomic, so a failure here leaves the existing folder
+                // standing.
+                _ = try fileManager.replaceItemAt(
+                    finalDirectory,
+                    withItemAt: stagingDirectory,
+                    options: .usingNewMetadataOnly
+                )
+                logger.info("Save committed over what was already there")
+                return .committed
+            }
+            logger.info("Save committed successfully")
+            return .committed
+        }
+
+        // MARK: Discard staging on cancel
+
+        /// Throws the staged files away, reopening the access they were written under.
+        ///
+        /// Callers reach this from UI actions that are nowhere near the save's security scope, so
+        /// the scope is taken here rather than expected of them.
+        func discard() async {
+            await baseDirectory.withSecurityScopedAccess {
+                await PatronArchiver.discardStagingDirectory(stagingDirectory)
+            }
+        }
+    }
+
+    private nonisolated static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd'T'HHmmss'Z'"
         formatter.locale = Locale(identifier: "en_US_POSIX")
@@ -15,26 +92,7 @@ enum StorageManager {
         return formatter
     }()
 
-    struct PreparedSave {
-        let stagingDirectory: URL
-        let finalDirectory: URL
-        /// The security-scoped directory the other two sit under.
-        ///
-        /// Carried along because staging now lives on the destination's volume, so discarding it
-        /// needs the same access the save was made under, and this is the only URL that can be
-        /// asked for it — `finalDirectory` is a path beneath the bookmark, not the bookmark.
-        let baseDirectory: URL
-    }
-
-    /// What committing a staged save turned out to do.
-    enum CommitResult {
-        case committed
-        /// Something was already at the destination. The staged files are untouched, and committing
-        /// again with `overwrite: true` is what replaces it.
-        case destinationExists
-    }
-
-    // MARK: - Phase 0: The directory a job assembles itself in
+    // MARK: Phase 0: The directory a job assembles itself in
 
     /// Makes the directory a job writes its files into before they are committed.
     ///
@@ -47,7 +105,7 @@ enum StorageManager {
     /// - Parameter baseDirectory: Where the save is ultimately headed. Only its volume is used, but
     ///   it has to exist and be security-scoped for the duration of this call.
     @concurrent
-    static func stagingDirectory(for baseDirectory: URL) async throws -> URL {
+    static func makeStagingDirectory(for baseDirectory: URL) async throws -> URL {
         // The volume can only be resolved from a directory that is actually there, and this is
         // where the save is going regardless.
         try FileManager.default.createDirectory(
@@ -63,14 +121,14 @@ enum StorageManager {
     }
 
     /// The name every page-level file in a save shares, minus the extension.
-    static func pageFileStem(for pageTitle: String) throws -> String {
+    nonisolated static func pageFileStem(for pageTitle: String) throws -> String {
         guard let stem = pageTitle.sanitizedFileName() else {
             throw FileNameError.empty
         }
         return stem
     }
 
-    // MARK: - Phase 1: Attribute the staged files and work out where they belong
+    // MARK: Phase 1: Attribute the staged files and work out where they belong
 
     /// Marks up a staging directory whose contents are already written, and resolves its
     /// destination.
@@ -79,16 +137,16 @@ enum StorageManager {
     /// only attaches the metadata that has to survive the move.
     @concurrent
     static func prepareSave(
-        metadata: PostMetadata,
+        of metadata: PostMetadata,
         pageFiles: [URL],
         downloadedMedia: [MediaDownloader.DownloadedMedia],
-        stagingDirectory: URL,
-        baseDirectory: URL,
+        in stagingDirectory: URL,
+        to baseDirectory: URL,
         includesWhereFroms: Bool = true,
         includesFinderTags: Bool = true,
         includesContentDates: Bool = true
     ) async throws -> PreparedSave {
-        let finalDirectory = try makePostFolderURL(metadata: metadata, baseDirectory: baseDirectory)
+        let finalDirectory = try postFolderURL(for: metadata, in: baseDirectory)
         let whereFroms = metadata.redirectChain.isEmpty ? [metadata.originalURL] : metadata.redirectChain
 
         logger.info("Preparing save in staging: \(stagingDirectory.path(), privacy: .private)")
@@ -125,67 +183,6 @@ enum StorageManager {
         )
     }
 
-    // MARK: - Phase 2: Move staging to final location
-
-    /// Moves a staged save into place.
-    ///
-    /// Nothing is asked about the destination beforehand. `moveItem` already refuses to overwrite,
-    /// so the move *is* the check — and one that cannot be raced, unlike looking first and moving
-    /// after. Replacement is reached only when that move reports a collision, which also means a
-    /// destination that disappeared while the user was deciding is simply moved into, rather than
-    /// failing an overwrite that no longer has anything to overwrite.
-    @concurrent
-    static func commitSave(
-        _ preparedSave: PreparedSave,
-        overwrite: Bool
-    ) async throws -> CommitResult {
-        let fileManager = FileManager.default
-        let finalDirectory = preparedSave.finalDirectory
-
-        logger.info(
-            "Committing save to: \(finalDirectory.path(), privacy: .private), overwrite: \(overwrite)"
-        )
-
-        // Ensure parent (author) directory exists
-        try fileManager.createDirectory(
-            at: finalDirectory.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-
-        do {
-            try fileManager.moveItem(at: preparedSave.stagingDirectory, to: finalDirectory)
-        } catch let error as CocoaError where error.code == .fileWriteFileExists {
-            guard overwrite else {
-                logger.info("Destination is taken, leaving staging for the user to decide on")
-                return .destinationExists
-            }
-            // `usingNewMetadataOnly` because the staging directory carries the tags and content
-            // dates this save just set; the default would restore the replaced folder's instead.
-            // The replacement is atomic, so a failure here leaves the existing folder standing.
-            _ = try fileManager.replaceItemAt(
-                finalDirectory,
-                withItemAt: preparedSave.stagingDirectory,
-                options: .usingNewMetadataOnly
-            )
-            logger.info("Save committed over what was already there")
-            return .committed
-        }
-        logger.info("Save committed successfully")
-        return .committed
-    }
-
-    // MARK: - Discard staging on cancel
-
-    /// Throws away a prepared save, reopening the access it was made under.
-    ///
-    /// Callers reach this from UI actions that are nowhere near the save's security scope, so the
-    /// scope is taken here rather than expected of them.
-    static func discardPreparedSave(_ preparedSave: PreparedSave) async {
-        await preparedSave.baseDirectory.withSecurityScopedAccess {
-            await discardStagingDirectory(preparedSave.stagingDirectory)
-        }
-    }
-
     /// Removes a staging directory that no longer has anywhere to go.
     ///
     /// Takes the URL rather than a ``PreparedSave`` so a job that failed before preparing one — a
@@ -203,7 +200,8 @@ enum StorageManager {
         }
     }
 
-    static func makePostFolderURL(metadata: PostMetadata, baseDirectory: URL) throws -> URL {
+    /// Where a post's save belongs under `baseDirectory`: site, then author, then the post itself.
+    nonisolated static func postFolderURL(for metadata: PostMetadata, in baseDirectory: URL) throws -> URL {
         guard let authorFolder = metadata.authorName.sanitizedFileName() else {
             throw FileNameError.empty
         }

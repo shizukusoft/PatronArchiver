@@ -2,8 +2,8 @@ import Testing
 import Foundation
 @testable import PatronArchiverKit
 
-struct StorageManagerTests {
-    @Test func makePostFolderURLFormatsCorrectly() throws {
+extension PatronArchiverTests {
+    @Test func postFolderURLFormatsCorrectly() throws {
         let metadata = PostMetadata(
             siteIdentifier: "Patreon",
             postID: "12345",
@@ -17,7 +17,7 @@ struct StorageManagerTests {
         )
 
         let baseDir = URL(filePath: "/tmp/test")
-        let result = try StorageManager.makePostFolderURL(metadata: metadata, baseDirectory: baseDir)
+        let result = try PatronArchiver.postFolderURL(for: metadata, in: baseDir)
 
         let path = result.absoluteString.removingPercentEncoding ?? result.absoluteString
         #expect(path.contains("Patreon/TestAuthor"))
@@ -25,7 +25,7 @@ struct StorageManagerTests {
         #expect(path.contains("Test Post Title"))
     }
 
-    @Test func makePostFolderURLUsesModifiedDateWhenPresent() throws {
+    @Test func postFolderURLUsesModifiedDateWhenPresent() throws {
         let created = Date(timeIntervalSince1970: 0)
         let modified = Date(timeIntervalSince1970: 1_000_000)
         let metadata = PostMetadata(
@@ -41,7 +41,7 @@ struct StorageManagerTests {
         )
 
         let baseDir = URL(filePath: "/tmp/test")
-        let result = try StorageManager.makePostFolderURL(metadata: metadata, baseDirectory: baseDir)
+        let result = try PatronArchiver.postFolderURL(for: metadata, in: baseDir)
 
         // Should use modified date, not created date
         // 1970-01-12 for modified (epoch + 1_000_000 seconds)
@@ -49,7 +49,7 @@ struct StorageManagerTests {
         #expect(path.contains("1970"))
     }
 
-    @Test func makePostFolderURLSanitizesCharacters() throws {
+    @Test func postFolderURLSanitizesCharacters() throws {
         let metadata = PostMetadata(
             siteIdentifier: "Patreon",
             postID: "99999",
@@ -63,7 +63,7 @@ struct StorageManagerTests {
         )
 
         let baseDir = URL(filePath: "/tmp/test")
-        let result = try StorageManager.makePostFolderURL(metadata: metadata, baseDirectory: baseDir)
+        let result = try PatronArchiver.postFolderURL(for: metadata, in: baseDir)
         let lastComponent = result.lastPathComponent
 
         #expect(!lastComponent.contains("/"))
