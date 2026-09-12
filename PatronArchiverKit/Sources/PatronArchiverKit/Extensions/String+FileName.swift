@@ -1,10 +1,16 @@
 import Foundation
 
-enum FileNameSanitizer {
-    private static let maxBytes = 255
+extension String {
+    private static let maxFileNameBytes = 255
 
-    static func sanitize(_ name: String) -> String? {
-        var sanitized = name
+    /// The receiver made safe for use as a single path component, or `nil` if nothing usable
+    /// remains.
+    ///
+    /// Replaces the path separator and the Finder-visible colon, drops NUL, trims surrounding
+    /// whitespace, and truncates the stem so the whole name fits the file system's 255-byte limit
+    /// while keeping the extension intact.
+    func sanitizedFileName() -> String? {
+        var sanitized = self
             .replacingOccurrences(of: "/", with: "_")
             .replacingOccurrences(of: ":", with: "\\")
             .replacingOccurrences(of: "\0", with: "")
@@ -27,7 +33,7 @@ enum FileNameSanitizer {
         }
 
         let extBytes = ext.utf8.count
-        let maxStemBytes = maxBytes - extBytes
+        let maxStemBytes = Self.maxFileNameBytes - extBytes
 
         if stem.utf8.count > maxStemBytes {
             var truncated = stem
@@ -41,24 +47,15 @@ enum FileNameSanitizer {
 
         return sanitized
     }
+}
 
-    static func sanitizePath(_ components: [String]) throws -> String {
-        try components.map {
-            guard let sanitized = sanitize($0) else {
-                throw FileNameSanitizerError.emptyFileName
-            }
-            return sanitized
-        }.joined(separator: "/")
-    }
+enum FileNameError: LocalizedError {
+    case empty
 
-    enum FileNameSanitizerError: LocalizedError {
-        case emptyFileName
-
-        var errorDescription: String? {
-            switch self {
-            case .emptyFileName:
-                String(localized: "File name is empty after sanitization.", bundle: Bundle.module)
-            }
+    var errorDescription: String? {
+        switch self {
+        case .empty:
+            String(localized: "File name is empty after sanitization.", bundle: Bundle.module)
         }
     }
 }

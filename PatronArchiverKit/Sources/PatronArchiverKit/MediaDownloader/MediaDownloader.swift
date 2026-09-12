@@ -87,8 +87,8 @@ struct MediaDownloader: Sendable {
         let prefix = unsafe String(format: "%02d", index + 1)
         let baseURL = resolveBaseURL(for: item, in: directory, response: response, index: index)
         let lastComponent = baseURL.deletingPathExtension().lastPathComponent
-        guard let stem = FileNameSanitizer.sanitize(lastComponent) else {
-            throw FileNameSanitizer.FileNameSanitizerError.emptyFileName
+        guard let stem = lastComponent.sanitizedFileName() else {
+            throw FileNameError.empty
         }
         var destinationURL = directory.appending(component: "\(prefix) - \(stem)")
         let pathExtension = baseURL.pathExtension

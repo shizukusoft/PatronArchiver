@@ -64,8 +64,8 @@ enum StorageManager {
 
     /// The name every page-level file in a save shares, minus the extension.
     static func pageFileStem(for pageTitle: String) throws -> String {
-        guard let stem = FileNameSanitizer.sanitize(pageTitle) else {
-            throw FileNameSanitizer.FileNameSanitizerError.emptyFileName
+        guard let stem = pageTitle.sanitizedFileName() else {
+            throw FileNameError.empty
         }
         return stem
     }
@@ -204,14 +204,12 @@ enum StorageManager {
     }
 
     static func makePostFolderURL(metadata: PostMetadata, baseDirectory: URL) throws -> URL {
-        guard let authorFolder = FileNameSanitizer.sanitize(metadata.authorName) else {
-            throw FileNameSanitizer.FileNameSanitizerError.emptyFileName
+        guard let authorFolder = metadata.authorName.sanitizedFileName() else {
+            throw FileNameError.empty
         }
         let dateString = dateFormatter.string(from: metadata.modifiedAt ?? metadata.createdAt)
-        guard let postFolder = FileNameSanitizer.sanitize(
-            "\(metadata.postID) - \(metadata.title) (\(dateString))"
-        ) else {
-            throw FileNameSanitizer.FileNameSanitizerError.emptyFileName
+        guard let postFolder = "\(metadata.postID) - \(metadata.title) (\(dateString))".sanitizedFileName() else {
+            throw FileNameError.empty
         }
         return baseDirectory
             .appendingPathComponent(metadata.siteIdentifier)
