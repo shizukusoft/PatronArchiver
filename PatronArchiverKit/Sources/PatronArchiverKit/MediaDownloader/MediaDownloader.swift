@@ -3,18 +3,30 @@ import Synchronization
 import UniformTypeIdentifiers
 import WebKit
 
-enum MediaDownloader {
+struct MediaDownloader: Sendable {
     struct DownloadedMedia: Sendable {
         let item: MediaItem
         let localURL: URL
         let downloadRedirects: [URL]
     }
 
-    static func download(
-        items: [MediaItem],
+    private let websiteDataStore: WKWebsiteDataStore
+    private let urlSession: URLSession
+
+    /// Creates a downloader that fetches media through the given session.
+    ///
+    /// - Parameters:
+    ///   - websiteDataStore: The data store whose cookies accompany each request.
+    ///   - urlSession: The URL session to download with.
+    init(websiteDataStore: WKWebsiteDataStore, urlSession: URLSession) {
+        self.websiteDataStore = websiteDataStore
+        self.urlSession = urlSession
+    }
+
+    /// Downloads `items` into `directory`, calling `onFileDownloaded` as each one finishes.
+    func download(
+        _ items: [MediaItem],
         to directory: URL,
-        websiteDataStore: WKWebsiteDataStore,
-        urlSession: URLSession,
         onFileDownloaded: (@Sendable () -> Void)? = nil
     ) async throws -> [DownloadedMedia] {
         // Batch urlRequest creation to minimize main actor hops
@@ -35,7 +47,7 @@ enum MediaDownloader {
                         delegate: redirectCollector
                     )
 
-                    let destinationURL = try resolveDestinationURL(
+                    let destinationURL = try Self.resolveDestinationURL(
                         for: item,
                         in: directory,
                         response: response as? HTTPURLResponse,

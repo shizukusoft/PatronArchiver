@@ -296,11 +296,13 @@ extension PatronArchiver {
                 Self.logger.debug("Starting media download concurrently...")
                 let totalMedia = mediaItems.count
                 let completedMediaCount = Atomic(0)
-                async let mediaResult = MediaDownloader.download(
-                    items: mediaItems,
-                    to: tempDir,
+                let mediaDownloader = MediaDownloader(
                     websiteDataStore: Self.websiteDataStore,
-                    urlSession: Self.urlSession,
+                    urlSession: Self.urlSession
+                )
+                async let mediaResult = mediaDownloader.download(
+                    mediaItems,
+                    to: tempDir,
                     onFileDownloaded: { @Sendable in
                         let count = completedMediaCount.add(1, ordering: .relaxed).newValue
                         Task { @MainActor in
