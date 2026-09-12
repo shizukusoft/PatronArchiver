@@ -2,7 +2,7 @@ import Testing
 import Foundation
 @testable import PatronArchiverKit
 
-struct XattrHelperTests {
+struct URLExtendedAttributesTests {
     @Test func setWhereFromsWritesPlistData() throws {
         let tempDir = FileManager.default.temporaryDirectory
         let testFile = tempDir.appendingPathComponent("xattr_test_\(UUID().uuidString).txt")
@@ -10,10 +10,10 @@ struct XattrHelperTests {
         defer { try? FileManager.default.removeItem(at: testFile) }
 
         let urls = [URL(string: "https://example.com/page")!]
-        try XattrHelper.setWhereFroms(urls, on: testFile.path)
+        try testFile.setWhereFroms(urls)
 
         // Verify xattr was set
-        let bufferSize = getxattr(testFile.path, "com.apple.metadata:kMDItemWhereFroms", nil, 0, 0, 0)
+        let bufferSize = unsafe getxattr(testFile.path, "com.apple.metadata:kMDItemWhereFroms", nil, 0, 0, 0)
         #expect(bufferSize > 0)
     }
 
@@ -23,9 +23,9 @@ struct XattrHelperTests {
         try Data("test".utf8).write(to: testFile)
         defer { try? FileManager.default.removeItem(at: testFile) }
 
-        try XattrHelper.setUserTags(["tag1", "tag2"], on: testFile.path)
+        try testFile.setUserTags(["tag1", "tag2"])
 
-        let bufferSize = getxattr(testFile.path, "com.apple.metadata:_kMDItemUserTags", nil, 0, 0, 0)
+        let bufferSize = unsafe getxattr(testFile.path, "com.apple.metadata:_kMDItemUserTags", nil, 0, 0, 0)
         #expect(bufferSize > 0)
     }
 
@@ -36,9 +36,9 @@ struct XattrHelperTests {
         defer { try? FileManager.default.removeItem(at: testFile) }
 
         let createdAt = Date(timeIntervalSince1970: 1_000_000)
-        try XattrHelper.setContentDates(createdAt: createdAt, modifiedAt: nil, on: testFile.path)
+        try testFile.setContentDates(createdAt: createdAt, modifiedAt: nil)
 
-        let bufferSize = getxattr(
+        let bufferSize = unsafe getxattr(
             testFile.path,
             "com.apple.metadata:kMDItemContentCreationDate",
             nil,
@@ -48,7 +48,7 @@ struct XattrHelperTests {
         )
         #expect(bufferSize > 0)
 
-        let modBufferSize = getxattr(
+        let modBufferSize = unsafe getxattr(
             testFile.path,
             "com.apple.metadata:kMDItemContentModificationDate",
             nil,
@@ -69,13 +69,9 @@ struct XattrHelperTests {
 
         let createdAt = Date(timeIntervalSince1970: 1_000_000)
         let modifiedAt = Date(timeIntervalSince1970: 2_000_000)
-        try XattrHelper.setContentDates(
-            createdAt: createdAt,
-            modifiedAt: modifiedAt,
-            on: testFile.path
-        )
+        try testFile.setContentDates(createdAt: createdAt, modifiedAt: modifiedAt)
 
-        let creationSize = getxattr(
+        let creationSize = unsafe getxattr(
             testFile.path,
             "com.apple.metadata:kMDItemContentCreationDate",
             nil,
@@ -85,7 +81,7 @@ struct XattrHelperTests {
         )
         #expect(creationSize > 0)
 
-        let modificationSize = getxattr(
+        let modificationSize = unsafe getxattr(
             testFile.path,
             "com.apple.metadata:kMDItemContentModificationDate",
             nil,
@@ -102,9 +98,9 @@ struct XattrHelperTests {
         try Data("test".utf8).write(to: testFile)
         defer { try? FileManager.default.removeItem(at: testFile) }
 
-        try XattrHelper.setUserTags([], on: testFile.path)
+        try testFile.setUserTags([])
 
-        let bufferSize = getxattr(testFile.path, "com.apple.metadata:_kMDItemUserTags", nil, 0, 0, 0)
+        let bufferSize = unsafe getxattr(testFile.path, "com.apple.metadata:_kMDItemUserTags", nil, 0, 0, 0)
         #expect(bufferSize == -1) // Not set
     }
 }

@@ -96,26 +96,25 @@ enum StorageManager {
 
         if includesWhereFroms {
             for fileURL in pageFiles {
-                try? XattrHelper.setWhereFroms(whereFroms, on: fileURL.path)
+                try? fileURL.setWhereFroms(whereFroms)
             }
 
             let landingURL = metadata.redirectChain.last ?? metadata.originalURL
             for media in downloadedMedia {
                 var mediaWhereFroms = [landingURL, media.item.url]
                 mediaWhereFroms.append(contentsOf: media.downloadRedirects)
-                try? XattrHelper.setWhereFroms(mediaWhereFroms, on: media.localURL.path)
+                try? media.localURL.setWhereFroms(mediaWhereFroms)
             }
 
-            try? XattrHelper.setWhereFroms(whereFroms, on: stagingDirectory.path)
+            try? stagingDirectory.setWhereFroms(whereFroms)
         }
         if includesFinderTags, !metadata.tags.isEmpty {
-            try? XattrHelper.setUserTags(metadata.tags, on: stagingDirectory.path)
+            try? stagingDirectory.setUserTags(metadata.tags)
         }
         if includesContentDates {
-            try? XattrHelper.setContentDates(
+            try? stagingDirectory.setContentDates(
                 createdAt: metadata.createdAt,
-                modifiedAt: metadata.modifiedAt,
-                on: stagingDirectory.path
+                modifiedAt: metadata.modifiedAt
             )
         }
 
