@@ -117,7 +117,7 @@ extension PatronArchiver {
             Self.logger.info("Ignoring enqueue after the owning window closed")
             return
         }
-        let provider = PatronServiceManager.shared.provider(for: url)
+        let provider = PatronServiceProviders.provider(for: url)
         let job = ArchiveJob(inputURL: url, provider: provider)
         jobs.append(job)
         startJobIfPossible(job)

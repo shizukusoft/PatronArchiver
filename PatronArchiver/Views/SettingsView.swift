@@ -51,7 +51,7 @@ struct SettingsView: View {
     }
 
     private var siteEntries: [SiteEntry] {
-        PatronServiceManager.userVisibleProviderTypes.map { providerType in
+        PatronServiceProviders.userVisible.map { providerType in
             SiteEntry(
                 identifier: providerType.siteIdentifier,
                 loginURL: providerType.loginURL,
@@ -322,7 +322,7 @@ struct SettingsView: View {
     /// Recomputes which listed providers still have an alternate domain left to sign in to.
     private func refreshAlternateSignInStates() async {
         var identifiers: Set<String> = []
-        for providerType in PatronServiceManager.userVisibleProviderTypes {
+        for providerType in PatronServiceProviders.userVisible {
             guard let alternate = providerType.alternateProviderType else { continue }
             guard await PatronArchiver.isLoggedIn(for: alternate) == false else { continue }
             identifiers.insert(providerType.siteIdentifier)
@@ -331,7 +331,7 @@ struct SettingsView: View {
     }
 
     private func checkAllLoginStatus() async {
-        let providerTypes = PatronServiceManager.userVisibleProviderTypes
+        let providerTypes = PatronServiceProviders.userVisible
 
         // 1. Fast cookie-based login check (concurrent)
         await withTaskGroup(of: (String, Bool).self) { group in
