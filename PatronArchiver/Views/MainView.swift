@@ -161,7 +161,7 @@ struct MainView: View {
         isResolving = true
         defer { isResolving = false }
 
-        let resolved = await URLResolver.resolve(inputURL, using: PatronArchiver.urlSession)
+        let resolved = await inputURL.resolvingRedirects(using: PatronArchiver.urlSession)
 
         guard var components = URLComponents(url: resolved, resolvingAgainstBaseURL: false) else { return }
         components.query = nil
