@@ -30,6 +30,8 @@ struct SettingsView: View {
     @State private var isPickingFolder = false
     @State private var loginEntry: SiteEntry?
     @State private var accountStatuses: [String: AccountStatus] = [:]
+    /// Identifiers of listed providers whose alternate domain has not been signed in to yet.
+    @State private var providersNeedingAlternateSignIn: Set<String> = []
 
     #if os(iOS)
     @Environment(\.openURL) private var openURL
@@ -49,7 +51,7 @@ struct SettingsView: View {
     }
 
     private var siteEntries: [SiteEntry] {
-        PatronServiceManager.userVisibleProviderTypes.map { providerType in
+        PatronServiceProviders.userVisible.map { providerType in
             SiteEntry(
                 identifier: providerType.siteIdentifier,
                 loginURL: providerType.loginURL,
@@ -82,38 +84,59 @@ struct SettingsView: View {
             Section("Accounts") {
                 ForEach(siteEntries) { entry in
                     let status = accountStatuses[entry.identifier] ?? .unknown
-                    HStack {
-                        Label(entry.identifier, systemImage: "globe")
-                        Spacer()
-                        switch status {
-                        case .unknown, .verifying:
-                            ProgressView()
-                                #if os(macOS)
-                                .controlSize(.small)
-                                #endif
-                        case .notSignedIn:
-                            Text("Not signed in")
-                                .foregroundStyle(.tertiary)
-                        case .verified(let info):
-                            Text(info.displayName)
-                                .foregroundStyle(.secondary)
-                        case .verificationFailed:
-                            Text("Verification failed")
-                                .foregroundStyle(.red)
-                        }
-                        switch status {
-                        case .notSignedIn:
-                            Button("Sign In") {
-                                loginEntry = entry
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            // Wins the space contest against the status text: when the row runs
+                            // out of width, the status wraps ("로그인되지 않음" breaks fine at its
+                            // word boundary) instead of the site name breaking mid-word.
+                            Label(entry.identifier, systemImage: "globe")
+                                .layoutPriority(1)
+                            Spacer()
+                            switch status {
+                            case .unknown, .verifying:
+                                ProgressView()
+                                    #if os(macOS)
+                                    .controlSize(.small)
+                                    #endif
+                            case .notSignedIn:
+                                Text("Not signed in")
+                                    .foregroundStyle(.tertiary)
+                            case .verified(let info):
+                                Text(info.displayName)
+                                    .foregroundStyle(.secondary)
+                            case .verificationFailed:
+                                Text("Verification failed")
+                                    .foregroundStyle(.red)
                             }
-                        case .verified, .verificationFailed, .verifying:
-                            Button("Sign Out") {
-                                Task {
-                                    await logout(for: entry)
+                            switch status {
+                            case .notSignedIn:
+                                Button("Sign In") {
+                                    loginEntry = entry
+                                }
+                            case .verified, .verificationFailed, .verifying:
+                                Button("Sign Out") {
+                                    Task {
+                                        await logout(for: entry)
+                                    }
+                                }
+                            case .unknown:
+                                EmptyView()
+                            }
+                        }
+
+                        // Nested inside the account's own row: a sibling row reads as a fourth
+                        // account, and a third control on the account line collapses the site
+                        // name in the fixed-width settings window.
+                        if let alternate = alternateSignIn(for: entry, status: status) {
+                            HStack(alignment: .firstTextBaseline) {
+                                Text("Some \(entry.identifier) content is hosted on a separate domain. Sign in there as well to access it.")
+                                    .font(.footnote)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Button("Additional Sign-In") {
+                                    loginEntry = alternate
                                 }
                             }
-                        case .unknown:
-                            EmptyView()
                         }
                     }
                 }
@@ -130,7 +153,11 @@ struct SettingsView: View {
                 HStack {
                     Text("Scroll Delay")
                     Spacer()
+                    // `labelsHidden()`: in a macOS grouped Form the text field's title is
+                    // rendered as a leading label, duplicating the "ms" unit suffix that follows.
+                    // iOS shows the title only as placeholder text, which the modifier keeps.
                     TextField("ms", value: $scrollDelay, format: .number)
+                        .labelsHidden()
                         .frame(width: 80)
                         #if os(macOS)
                         .textFieldStyle(.roundedBorder)
@@ -215,6 +242,7 @@ struct SettingsView: View {
         #endif
         .task {
             await checkAllLoginStatus()
+            await refreshAlternateSignInStates()
         }
         .onDisappear {
             for status in accountStatuses.values {
@@ -259,14 +287,51 @@ struct SettingsView: View {
                 Task {
                     // Brief delay to allow cookies to propagate
                     try? await Task.sleep(for: .milliseconds(500))
-                    await checkLoginStatus(for: closedEntry.providerType)
+                    // An alternate-domain sign-in has no row in Accounts, so there is nothing to
+                    // refresh for it — only the listed provider that offered it has one.
+                    if siteEntries.contains(closedEntry) {
+                        await checkLoginStatus(for: closedEntry.providerType)
+                    }
+                    await refreshAlternateSignInStates()
                 }
             }
         }
     }
 
+    /// The alternate-domain sign-in still pending for a signed-in provider, if any.
+    ///
+    /// The sign-in sheet offers this right after a successful sign-in, but the user can dismiss it
+    /// — and anyone already signed in never sees the sheet at all — so the row keeps offering it.
+    /// The alternate domain is never named, so the action reads as a generic additional sign-in.
+    private func alternateSignIn(for entry: SiteEntry, status: AccountStatus) -> SiteEntry? {
+        switch status {
+        case .unknown, .notSignedIn:
+            return nil
+        case .verifying, .verified, .verificationFailed:
+            guard providersNeedingAlternateSignIn.contains(entry.identifier),
+                  let alternate = entry.providerType.alternateProviderType
+            else { return nil }
+            return SiteEntry(
+                identifier: alternate.siteIdentifier,
+                loginURL: alternate.loginURL,
+                providerType: alternate
+            )
+        }
+    }
+
+    /// Recomputes which listed providers still have an alternate domain left to sign in to.
+    private func refreshAlternateSignInStates() async {
+        var identifiers: Set<String> = []
+        for providerType in PatronServiceProviders.userVisible {
+            guard let alternate = providerType.alternateProviderType else { continue }
+            guard await PatronArchiver.isLoggedIn(for: alternate) == false else { continue }
+            identifiers.insert(providerType.siteIdentifier)
+        }
+        providersNeedingAlternateSignIn = identifiers
+    }
+
     private func checkAllLoginStatus() async {
-        let providerTypes = PatronServiceManager.userVisibleProviderTypes
+        let providerTypes = PatronServiceProviders.userVisible
 
         // 1. Fast cookie-based login check (concurrent)
         await withTaskGroup(of: (String, Bool).self) { group in
@@ -358,6 +423,7 @@ struct SettingsView: View {
         }
 
         accountStatuses[entry.identifier] = .notSignedIn
+        await refreshAlternateSignInStates()
     }
 
     private static func cookie(_ cookie: HTTPCookie, matches host: String) -> Bool {

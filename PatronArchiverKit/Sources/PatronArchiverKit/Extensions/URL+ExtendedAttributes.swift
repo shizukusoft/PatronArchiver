@@ -1,31 +1,23 @@
 import Foundation
 
-enum XattrHelper {
-    static func setWhereFroms(_ urls: [URL], on path: String) throws {
+extension URL {
+    func setWhereFroms(_ urls: [URL]) throws {
         let strings = urls.map(\.absoluteString)
         let plistData = try PropertyListSerialization.data(
             fromPropertyList: strings,
             format: .binary,
             options: 0
         )
-        try setExtendedAttribute("com.apple.metadata:kMDItemWhereFroms", to: plistData, on: path)
+        try setExtendedAttribute("com.apple.metadata:kMDItemWhereFroms", to: plistData)
     }
 
-    static func setContentDates(
-        createdAt: Date,
-        modifiedAt: Date?,
-        on path: String
-    ) throws {
+    func setContentDates(createdAt: Date, modifiedAt: Date?) throws {
         let creationData = try PropertyListSerialization.data(
             fromPropertyList: createdAt,
             format: .binary,
             options: 0
         )
-        try setExtendedAttribute(
-            "com.apple.metadata:kMDItemContentCreationDate",
-            to: creationData,
-            on: path
-        )
+        try setExtendedAttribute("com.apple.metadata:kMDItemContentCreationDate", to: creationData)
 
         if let modifiedAt {
             let modificationData = try PropertyListSerialization.data(
@@ -35,38 +27,35 @@ enum XattrHelper {
             )
             try setExtendedAttribute(
                 "com.apple.metadata:kMDItemContentModificationDate",
-                to: modificationData,
-                on: path
+                to: modificationData
             )
         }
     }
 
-    static func setUserTags(_ tags: [String], on path: String) throws {
+    func setUserTags(_ tags: [String]) throws {
         guard !tags.isEmpty else { return }
         let plistData = try PropertyListSerialization.data(
             fromPropertyList: tags,
             format: .binary,
             options: 0
         )
-        try setExtendedAttribute("com.apple.metadata:_kMDItemUserTags", to: plistData, on: path)
+        try setExtendedAttribute("com.apple.metadata:_kMDItemUserTags", to: plistData)
     }
 
     /// Writes a single extended attribute, bridging `Data` to the raw pointer pair `setxattr`
     /// expects.
     ///
-    /// `setxattr` only borrows the buffer for the duration of the call, and `path`/`name` are
-    /// bridged as null-terminated C strings that stay alive across it — hence the `unsafe`
+    /// `setxattr` only borrows the buffer and the path for the duration of the call, and `name`
+    /// is bridged as a null-terminated C string that stays alive across it — hence the `unsafe`
     /// acknowledgements under strict memory safety.
     ///
     /// Named `setExtendedAttribute` rather than `setxattr` so the call below resolves to the C
     /// function instead of recursing into this one.
-    private static func setExtendedAttribute(
-        _ name: String,
-        to data: Data,
-        on path: String
-    ) throws {
-        let result = unsafe data.withUnsafeBytes { buffer in
-            unsafe setxattr(path, name, buffer.baseAddress, buffer.count, 0, 0)
+    private func setExtendedAttribute(_ name: String, to data: Data) throws {
+        let result = unsafe withUnsafeFileSystemRepresentation { path in
+            unsafe data.withUnsafeBytes { buffer in
+                unsafe setxattr(path, name, buffer.baseAddress, buffer.count, 0, 0)
+            }
         }
         guard result == 0 else {
             throw CocoaError(.fileWriteUnknown)

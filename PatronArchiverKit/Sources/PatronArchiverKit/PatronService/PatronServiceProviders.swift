@@ -1,8 +1,9 @@
 import Foundation
 
-public struct PatronServiceManager: Sendable {
+/// The providers this app knows, and which one handles a given URL.
+public enum PatronServiceProviders {
     /// Providers shown in the user-facing site list (e.g., Settings).
-    public static let userVisibleProviderTypes: [any PatronServiceProviding.Type] = [
+    public static let userVisible: [any PatronServiceProviding.Type] = [
         PatreonProvider.self,
         PixivFanboxProvider.self,
         SubscribeStarProvider.self,
@@ -10,18 +11,14 @@ public struct PatronServiceManager: Sendable {
 
     /// All providers, including alternates that are reachable via URL routing
     /// but should not be listed in the user-facing UI.
-    public static let allProviderTypes: [any PatronServiceProviding.Type] = userVisibleProviderTypes
+    public static let all: [any PatronServiceProviding.Type] = userVisible
         + [SubscribeStarAdultProvider.self]
 
-    static let shared = PatronServiceManager()
-
-    private init() {}
-
-    func provider(for url: URL) -> (any PatronServiceProviding)? {
+    static func provider(for url: URL) -> (any PatronServiceProviding)? {
         let urlString = url.absoluteString
-        for providerType in Self.allProviderTypes {
+        for providerType in all {
             for pattern in providerType.matchPatterns {
-                if Self.wholeMatch(urlString, pattern: pattern) {
+                if wholeMatch(urlString, pattern: pattern) {
                     return providerType.init()
                 }
             }

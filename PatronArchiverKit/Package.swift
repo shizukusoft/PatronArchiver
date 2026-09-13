@@ -28,7 +28,7 @@ let package = Package(
         // and Combine traits are the app target's concern, so they are disabled on this edge. In an
         // app build the trait union re-enables them (SE-0450), so this only keeps the Kit's own
         // standalone build Core-only.
-        .package(url: "https://github.com/sinoru/swift-user-defaults-kit.git", "0.0.2"..<"0.1.0", traits: []),
+        .package(url: "https://github.com/sinoru/swift-user-defaults-kit.git", "0.0.3"..<"0.1.0", traits: []),
         // The webarchive parsing here only walks the tree, so the `ValueCoder` trait — the
         // `Decodable` pair that reads a type out of one — is disabled on this edge, the same way
         // the traits above are. A build that also pulls it in through another edge gets it back by

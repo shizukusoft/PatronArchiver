@@ -1,19 +1,32 @@
 import Foundation
+import Synchronization
 import UniformTypeIdentifiers
 import WebKit
 
-enum MediaDownloader {
+struct MediaDownloader: Sendable {
     struct DownloadedMedia: Sendable {
         let item: MediaItem
         let localURL: URL
         let downloadRedirects: [URL]
     }
 
-    static func download(
-        items: [MediaItem],
+    private let websiteDataStore: WKWebsiteDataStore
+    private let urlSession: URLSession
+
+    /// Creates a downloader that fetches media through the given session.
+    ///
+    /// - Parameters:
+    ///   - websiteDataStore: The data store whose cookies accompany each request.
+    ///   - urlSession: The URL session to download with.
+    init(websiteDataStore: WKWebsiteDataStore, urlSession: URLSession) {
+        self.websiteDataStore = websiteDataStore
+        self.urlSession = urlSession
+    }
+
+    /// Downloads `items` into `directory`, calling `onFileDownloaded` as each one finishes.
+    func download(
+        _ items: [MediaItem],
         to directory: URL,
-        websiteDataStore: WKWebsiteDataStore,
-        urlSession: URLSession,
         onFileDownloaded: (@Sendable () -> Void)? = nil
     ) async throws -> [DownloadedMedia] {
         // Batch urlRequest creation to minimize main actor hops
@@ -34,7 +47,7 @@ enum MediaDownloader {
                         delegate: redirectCollector
                     )
 
-                    let destinationURL = try resolveDestinationURL(
+                    let destinationURL = try Self.resolveDestinationURL(
                         for: item,
                         in: directory,
                         response: response as? HTTPURLResponse,
@@ -74,8 +87,8 @@ enum MediaDownloader {
         let prefix = unsafe String(format: "%02d", index + 1)
         let baseURL = resolveBaseURL(for: item, in: directory, response: response, index: index)
         let lastComponent = baseURL.deletingPathExtension().lastPathComponent
-        guard let stem = FileNameSanitizer.sanitize(lastComponent) else {
-            throw FileNameSanitizer.FileNameSanitizerError.emptyFileName
+        guard let stem = lastComponent.sanitizedFileName() else {
+            throw FileNameError.empty
         }
         var destinationURL = directory.appending(component: "\(prefix) - \(stem)")
         let pathExtension = baseURL.pathExtension
@@ -128,12 +141,11 @@ enum MediaDownloader {
     }
 }
 
-private final class RedirectCollector: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
-    private let lock = NSLock()
-    private var _urls: [URL] = []
+private final class RedirectCollector: NSObject, URLSessionTaskDelegate, Sendable {
+    private let urls = Mutex<[URL]>([])
 
     var redirectedURLs: [URL] {
-        lock.withLock { _urls }
+        urls.withLock { $0 }
     }
 
     // Workaround for a SILGen crash while emitting the ObjC thunk for an `@objc`-exposed
@@ -148,7 +160,7 @@ private final class RedirectCollector: NSObject, URLSessionTaskDelegate, @unchec
         newRequest request: URLRequest
     ) async -> URLRequest? {
         if let url = request.url {
-            lock.withLock { _urls.append(url) }
+            urls.withLock { $0.append(url) }
         }
         return request
     }

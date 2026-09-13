@@ -1,5 +1,6 @@
 import Foundation
 import OSLog
+import Synchronization
 import WebKit
 
 @MainActor
@@ -116,7 +117,7 @@ extension PatronArchiver {
             Self.logger.info("Ignoring enqueue after the owning window closed")
             return
         }
-        let provider = PatronServiceManager.shared.provider(for: url)
+        let provider = PatronServiceProviders.provider(for: url)
         let job = ArchiveJob(inputURL: url, provider: provider)
         jobs.append(job)
         startJobIfPossible(job)
@@ -179,7 +180,7 @@ extension PatronArchiver {
     private func discardPendingSaveIfNeeded(_ job: ArchiveJob) {
         guard let preparedSave = job.pendingSave else { return }
         job.pendingSave = nil
-        Task { await StorageManager.discardPreparedSave(preparedSave) }
+        Task { await preparedSave.discard() }
     }
 
     private func startJobIfPossible(_ job: ArchiveJob) {
@@ -198,7 +199,7 @@ extension PatronArchiver {
         let webView = self.webView
 
         // Tracked outside `do` so a failure can remove it. On the paths that succeed it is no
-        // longer this job's to delete: `commitSave` moves it to its final home, and an overwrite
+        // longer this job's to delete: `commit(overwrite:)` moves it to its final home, and an overwrite
         // prompt hands it to `job.pendingSave` until the user answers.
         //
         // The base directory rides along because staging sits on its volume, so removing it needs
@@ -287,24 +288,23 @@ extension PatronArchiver {
             // volume the app has no standing permission for, to fail.
             let baseDir = AppSettings.resolveBaseDirectory()
             try await baseDir.withSecurityScopedAccess {
-                let tempDir = try await StorageManager.stagingDirectory(for: baseDir)
+                let tempDir = try await Self.makeStagingDirectory(for: baseDir)
                 staging = (tempDir, baseDir)
-                let fileStem = try StorageManager.pageFileStem(for: pageTitle)
+                let fileStem = try Self.pageFileStem(for: pageTitle)
 
                 // Start media download in background (no WebView dependency)
                 Self.logger.debug("Starting media download concurrently...")
                 let totalMedia = mediaItems.count
-                let completedMediaCount = OSAllocatedUnfairLock(initialState: 0)
-                async let mediaResult = MediaDownloader.download(
-                    items: mediaItems,
-                    to: tempDir,
+                let completedMediaCount = Atomic(0)
+                let mediaDownloader = MediaDownloader(
                     websiteDataStore: Self.websiteDataStore,
-                    urlSession: Self.urlSession,
+                    urlSession: Self.urlSession
+                )
+                async let mediaResult = mediaDownloader.download(
+                    mediaItems,
+                    to: tempDir,
                     onFileDownloaded: { @Sendable in
-                        let count = completedMediaCount.withLock { value in
-                            value += 1
-                            return value
-                        }
+                        let count = completedMediaCount.add(1, ordering: .relaxed).newValue
                         Task { @MainActor in
                             guard job.progress.completedUnitCount >= 60 else { return }
                             job.progress.completedUnitCount = 60 + Int64(count * 20 / max(totalMedia, 1))
@@ -326,7 +326,7 @@ extension PatronArchiver {
                 Self.logger.debug("Generating PDF...")
                 try await webView.writeFullPagePDF(to: pdfURL)
                 Self.logger.debug("PDF written")
-                let alreadyCompleted = completedMediaCount.withLock { $0 }
+                let alreadyCompleted = completedMediaCount.load(ordering: .relaxed)
                 job.progress.completedUnitCount = 60 + Int64(alreadyCompleted * 20 / max(totalMedia, 1))
 
                 // Await media download completion
@@ -338,12 +338,12 @@ extension PatronArchiver {
                 try Task.checkCancellation()
                 job.status = .saving
                 Self.logger.debug("Preparing save to: \(baseDir.path(), privacy: .private)")
-                let preparedSave = try await StorageManager.prepareSave(
-                    metadata: metadata,
+                let preparedSave = try await Self.prepareSave(
+                    of: metadata,
                     pageFiles: [mhtmlURL, pdfURL],
                     downloadedMedia: downloadedMedia,
-                    stagingDirectory: tempDir,
-                    baseDirectory: baseDir,
+                    in: tempDir,
+                    to: baseDir,
                     includesWhereFroms: AppSettings.includesWhereFroms.wrappedValue,
                     includesFinderTags: AppSettings.includesFinderTags.wrappedValue,
                     includesContentDates: AppSettings.includesContentDates.wrappedValue
@@ -352,11 +352,11 @@ extension PatronArchiver {
 
                 // 10. Commit — the move is also the check for whether the destination is free
                 try Task.checkCancellation()
-                let result = try await StorageManager.commitSave(preparedSave, overwrite: false)
+                let result = try await preparedSave.commit(overwrite: false)
 
                 switch result {
                 case .destinationExists:
-                    // `commitSave` cannot be interrupted partway, so a cancel that landed during it
+                    // `commit(overwrite:)` cannot be interrupted partway, so a cancel that landed during it
                     // is only answerable here — and nothing was written, so answering it costs
                     // nothing. Skipping this check would revive a job the user called off as a
                     // prompt, and one nobody is left to answer if the window is what closed.
@@ -387,7 +387,7 @@ extension PatronArchiver {
             Self.logger.error("Job failed: \(error.localizedDescription, privacy: .public)")
             if let staging {
                 await staging.baseDirectory.withSecurityScopedAccess {
-                    await StorageManager.discardStagingDirectory(staging.directory)
+                    await Self.discardStagingDirectory(staging.directory)
                 }
             }
             // Staging is cleaned up either way, but the status is not this task's to set once it has
@@ -445,7 +445,7 @@ extension PatronArchiver {
                 try Task.checkCancellation()
                 let baseDir = AppSettings.resolveBaseDirectory()
                 _ = try await baseDir.withSecurityScopedAccess {
-                    try await StorageManager.commitSave(preparedSave, overwrite: true)
+                    try await preparedSave.commit(overwrite: true)
                 }
                 // The replacement did land, but a cancel that arrived during it has already failed
                 // the job, and a retry may have queued it behind that. Reporting `completed` here
@@ -461,7 +461,7 @@ extension PatronArchiver {
             } catch {
                 // Nothing else knows about this staging directory any more — `pendingSave` was
                 // cleared above — so failing without removing it would strand the files.
-                await StorageManager.discardPreparedSave(preparedSave)
+                await preparedSave.discard()
                 Self.logger.error("Overwrite commit failed: \(error.localizedDescription, privacy: .public)")
                 if !Task.isCancelled {
                     job.status = .failed(error)
