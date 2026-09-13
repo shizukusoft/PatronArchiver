@@ -7,9 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-09-13
+
 ### Added
 
 - Each window archives independently with its own job queue; closing a window cancels only that window's jobs
+- SubscribeStar's alternate-domain sign-in is now offered from the account row in Settings, so it no longer has to be caught while the login sheet is open
 
 ### Changed
 
@@ -20,8 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Archiving a post with many images now uses far less memory
 - Saving to an external or network volume no longer writes every file twice
 - The app now runs as a hardened process, with enhanced security, pointer authentication and hardened memory allocations enabled
-- Migrated the support contact email and privacy policy hosting to the shizukusoft.com domain
-- Feedback email diagnostic logs now cover the whole process instead of only the app's own subsystems, capturing framework-level activity for easier diagnosis
 - Submitted URLs are now resolved with the same User-Agent the archiver uses to load pages
 
 ### Fixed
@@ -33,6 +34,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - A cancelled job still saved its files, or came back as a replace prompt
 - A job retried after being cancelled mid-save never started
 - Patreon posts archived with no images or attachments after the site stopped embedding post data in the page
+- The login sheet never closed itself after a successful sign-in, and SubscribeStar's additional sign-in prompt never appeared, because neither the cookie store observer nor the navigation callbacks reported the sign-in
+- The scroll delay field showed its "ms" unit twice on macOS, and site names in the Accounts section wrapped mid-word on iOS
+
+## [1.1.2] - 2026-08-17
+
+### Changed
+
+- Migrated the support contact email and privacy policy hosting to the shizukusoft.com domain
+- Feedback email diagnostic logs now cover the whole process instead of only the app's own subsystems, capturing framework-level activity for easier diagnosis
 
 ## [1.1.1] - 2026-06-14
 
@@ -200,7 +210,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adopted Swift 6.0 strict concurrency with MainActor isolation
 - Replaced glob-based URL matching with Swift Regex
 
-[Unreleased]: https://github.com/shizukusoft/PatronArchiver/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/shizukusoft/PatronArchiver/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/shizukusoft/PatronArchiver/compare/v1.1.2...v1.2.0
+[1.1.2]: https://github.com/shizukusoft/PatronArchiver/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/shizukusoft/PatronArchiver/compare/v1.1...v1.1.1
 [1.1]: https://github.com/shizukusoft/PatronArchiver/compare/v1.0.0+rc.3...v1.1
 [1.0.0+rc.3]: https://github.com/shizukusoft/PatronArchiver/compare/v1.0.0+rc.2...v1.0.0+rc.3
