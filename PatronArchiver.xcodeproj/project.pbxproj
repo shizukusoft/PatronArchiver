@@ -3,11 +3,12 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 77;
+	objectVersion = 100;
 	objects = {
 
 /* Begin PBXBuildFile section */
 		196313EF2F5D59C800A8BCC7 /* PatronArchiverKit in Frameworks */ = {isa = PBXBuildFile; productRef = 196313EE2F5D59C800A8BCC7 /* PatronArchiverKit */; };
+		199A4CD030201C3A00F65DFE /* UserDefaultsKit in Frameworks */ = {isa = PBXBuildFile; productRef = 199A4CCF30201C3A00F65DFE /* UserDefaultsKit */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -69,25 +70,20 @@
 /* Begin PBXFrameworksBuildPhase section */
 		196C1BD32F57F8310014D927 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
+				199A4CD030201C3A00F65DFE /* UserDefaultsKit in Frameworks */,
 				196313EF2F5D59C800A8BCC7 /* PatronArchiverKit in Frameworks */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		196C1BE02F57F8320014D927 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		196C1BEA2F57F8320014D927 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
@@ -135,14 +131,13 @@
 			);
 			buildRules = (
 			);
-			dependencies = (
-			);
 			fileSystemSynchronizedGroups = (
 				196C1BD82F57F8310014D927 /* PatronArchiver */,
 			);
 			name = PatronArchiver;
 			packageProductDependencies = (
 				196313EE2F5D59C800A8BCC7 /* PatronArchiverKit */,
+				199A4CCF30201C3A00F65DFE /* UserDefaultsKit */,
 			);
 			productName = PatronArchiver;
 			productReference = 196C1BD62F57F8310014D927 /* PatronArchiver.app */;
@@ -165,8 +160,6 @@
 				196C1BE62F57F8320014D927 /* PatronArchiverTests */,
 			);
 			name = PatronArchiverTests;
-			packageProductDependencies = (
-			);
 			productName = PatronArchiverTests;
 			productReference = 196C1BE32F57F8320014D927 /* PatronArchiverTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
@@ -188,8 +181,6 @@
 				196C1BF02F57F8320014D927 /* PatronArchiverUITests */,
 			);
 			name = PatronArchiverUITests;
-			packageProductDependencies = (
-			);
 			productName = PatronArchiverUITests;
 			productReference = 196C1BED2F57F8320014D927 /* PatronArchiverUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
@@ -228,6 +219,9 @@
 			);
 			mainGroup = 196C1BCD2F57F8310014D927;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				199A4CCE30201C3A00F65DFE /* XCRemoteSwiftPackageReference "swift-user-defaults-kit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 196C1BD72F57F8310014D927 /* Products */;
 			projectDirPath = "";
@@ -243,48 +237,36 @@
 /* Begin PBXResourcesBuildPhase section */
 		196C1BD42F57F8310014D927 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		196C1BE12F57F8320014D927 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		196C1BEB2F57F8320014D927 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		196C1BD22F57F8310014D927 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		196C1BDF2F57F8320014D927 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 		196C1BE92F57F8320014D927 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
@@ -302,7 +284,7 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		196C1BF52F57F8320014D927 /* Debug */ = {
+		196C1BF52F57F8320014D927 /* Debug configuration for PBXProject "PatronArchiver" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -343,7 +325,9 @@
 				CURRENT_PROJECT_VERSION = 0;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = 83XZ8ZBS6L;
+				DEVELOPMENT_TEAM = SYA56G458A;
+				ENABLE_ENHANCED_SECURITY = YES;
+				ENABLE_POINTER_AUTHENTICATION = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -364,7 +348,7 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = 1.1.2;
+				MARKETING_VERSION = 1.2.0;
 				MERGED_BINARY_TYPE = automatic;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
@@ -385,7 +369,7 @@
 			};
 			name = Debug;
 		};
-		196C1BF62F57F8320014D927 /* Release */ = {
+		196C1BF62F57F8320014D927 /* Release configuration for PBXProject "PatronArchiver" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -426,8 +410,10 @@
 				CURRENT_PROJECT_VERSION = 0;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = 83XZ8ZBS6L;
+				DEVELOPMENT_TEAM = SYA56G458A;
+				ENABLE_ENHANCED_SECURITY = YES;
 				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_POINTER_AUTHENTICATION = YES;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
@@ -442,7 +428,7 @@
 				LLVM_LTO = YES;
 				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.6;
-				MARKETING_VERSION = 1.1.2;
+				MARKETING_VERSION = 1.2.0;
 				MERGED_BINARY_TYPE = automatic;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
@@ -461,14 +447,12 @@
 			};
 			name = Release;
 		};
-		196C1BF82F57F8320014D927 /* Debug */ = {
+		196C1BF82F57F8320014D927 /* Debug configuration for PBXNativeTarget "PatronArchiver" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = PatronArchiver/PatronArchiver.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
-				DEVELOPMENT_TEAM = SYA56G458A;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -497,14 +481,12 @@
 			};
 			name = Debug;
 		};
-		196C1BF92F57F8320014D927 /* Release */ = {
+		196C1BF92F57F8320014D927 /* Release configuration for PBXNativeTarget "PatronArchiver" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = PatronArchiver/PatronArchiver.entitlements;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
-				DEVELOPMENT_TEAM = SYA56G458A;
 				ENABLE_APP_SANDBOX = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
@@ -533,7 +515,7 @@
 			};
 			name = Release;
 		};
-		196C1BFB2F57F8320014D927 /* Debug */ = {
+		196C1BFB2F57F8320014D927 /* Debug configuration for PBXNativeTarget "PatronArchiverTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -547,7 +529,7 @@
 			};
 			name = Debug;
 		};
-		196C1BFC2F57F8320014D927 /* Release */ = {
+		196C1BFC2F57F8320014D927 /* Release configuration for PBXNativeTarget "PatronArchiverTests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUNDLE_LOADER = "$(TEST_HOST)";
@@ -561,7 +543,7 @@
 			};
 			name = Release;
 		};
-		196C1BFE2F57F8320014D927 /* Debug */ = {
+		196C1BFE2F57F8320014D927 /* Debug configuration for PBXNativeTarget "PatronArchiverUITests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GENERATE_INFOPLIST_FILE = YES;
@@ -574,7 +556,7 @@
 			};
 			name = Debug;
 		};
-		196C1BFF2F57F8320014D927 /* Release */ = {
+		196C1BFF2F57F8320014D927 /* Release configuration for PBXNativeTarget "PatronArchiverUITests" */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				GENERATE_INFOPLIST_FILE = YES;
@@ -593,45 +575,61 @@
 		196C1BD12F57F8310014D927 /* Build configuration list for PBXProject "PatronArchiver" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				196C1BF52F57F8320014D927 /* Debug */,
-				196C1BF62F57F8320014D927 /* Release */,
+				196C1BF52F57F8320014D927 /* Debug configuration for PBXProject "PatronArchiver" */,
+				196C1BF62F57F8320014D927 /* Release configuration for PBXProject "PatronArchiver" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		196C1BF72F57F8320014D927 /* Build configuration list for PBXNativeTarget "PatronArchiver" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				196C1BF82F57F8320014D927 /* Debug */,
-				196C1BF92F57F8320014D927 /* Release */,
+				196C1BF82F57F8320014D927 /* Debug configuration for PBXNativeTarget "PatronArchiver" */,
+				196C1BF92F57F8320014D927 /* Release configuration for PBXNativeTarget "PatronArchiver" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		196C1BFA2F57F8320014D927 /* Build configuration list for PBXNativeTarget "PatronArchiverTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				196C1BFB2F57F8320014D927 /* Debug */,
-				196C1BFC2F57F8320014D927 /* Release */,
+				196C1BFB2F57F8320014D927 /* Debug configuration for PBXNativeTarget "PatronArchiverTests" */,
+				196C1BFC2F57F8320014D927 /* Release configuration for PBXNativeTarget "PatronArchiverTests" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 		196C1BFD2F57F8320014D927 /* Build configuration list for PBXNativeTarget "PatronArchiverUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				196C1BFE2F57F8320014D927 /* Debug */,
-				196C1BFF2F57F8320014D927 /* Release */,
+				196C1BFE2F57F8320014D927 /* Debug configuration for PBXNativeTarget "PatronArchiverUITests" */,
+				196C1BFF2F57F8320014D927 /* Release configuration for PBXNativeTarget "PatronArchiverUITests" */,
 			);
-			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		199A4CCE30201C3A00F65DFE /* XCRemoteSwiftPackageReference "swift-user-defaults-kit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sinoru/swift-user-defaults-kit";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 0.0.3;
+			};
+			traits = (
+				SwiftUI,
+				default,
+			);
+		};
+/* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		196313EE2F5D59C800A8BCC7 /* PatronArchiverKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = PatronArchiverKit;
+		};
+		199A4CCF30201C3A00F65DFE /* UserDefaultsKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 199A4CCE30201C3A00F65DFE /* XCRemoteSwiftPackageReference "swift-user-defaults-kit" */;
+			productName = UserDefaultsKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -1,19 +1,32 @@
 import Foundation
+import Synchronization
 import UniformTypeIdentifiers
 import WebKit
 
-enum MediaDownloader {
+struct MediaDownloader: Sendable {
     struct DownloadedMedia: Sendable {
         let item: MediaItem
         let localURL: URL
         let downloadRedirects: [URL]
     }
 
-    static func download(
-        items: [MediaItem],
+    private let websiteDataStore: WKWebsiteDataStore
+    private let urlSession: URLSession
+
+    /// Creates a downloader that fetches media through the given session.
+    ///
+    /// - Parameters:
+    ///   - websiteDataStore: The data store whose cookies accompany each request.
+    ///   - urlSession: The URL session to download with.
+    init(websiteDataStore: WKWebsiteDataStore, urlSession: URLSession) {
+        self.websiteDataStore = websiteDataStore
+        self.urlSession = urlSession
+    }
+
+    /// Downloads `items` into `directory`, calling `onFileDownloaded` as each one finishes.
+    func download(
+        _ items: [MediaItem],
         to directory: URL,
-        websiteDataStore: WKWebsiteDataStore,
-        urlSession: URLSession,
         onFileDownloaded: (@Sendable () -> Void)? = nil
     ) async throws -> [DownloadedMedia] {
         // Batch urlRequest creation to minimize main actor hops
@@ -34,16 +47,17 @@ enum MediaDownloader {
                         delegate: redirectCollector
                     )
 
-                    let destinationURL = try resolveDestinationURL(
+                    let destinationURL = try Self.resolveDestinationURL(
                         for: item,
                         in: directory,
                         response: response as? HTTPURLResponse,
                         index: index
                     )
 
-                    if FileManager.default.fileExists(atPath: destinationURL.path) {
-                        try FileManager.default.removeItem(at: destinationURL)
-                    }
+                    // Left to fail if something is already there. The staging directory is new for
+                    // every job, so nothing in it is stale enough to be worth clearing — a name
+                    // that is taken means this download collided with the page dump or with
+                    // another item, and losing a file quietly is worse than failing the job.
                     try FileManager.default.moveItem(at: tempURL, to: destinationURL)
 
                     return DownloadedMedia(
@@ -69,11 +83,12 @@ enum MediaDownloader {
         response: HTTPURLResponse?,
         index: Int
     ) throws -> URL {
-        let prefix = String(format: "%02d", index + 1)
+        // `String(format:)` goes through untyped `CVarArg` varargs, hence `unsafe`.
+        let prefix = unsafe String(format: "%02d", index + 1)
         let baseURL = resolveBaseURL(for: item, in: directory, response: response, index: index)
         let lastComponent = baseURL.deletingPathExtension().lastPathComponent
-        guard let stem = FileNameSanitizer.sanitize(lastComponent) else {
-            throw FileNameSanitizer.FileNameSanitizerError.emptyFileName
+        guard let stem = lastComponent.sanitizedFileName() else {
+            throw FileNameError.empty
         }
         var destinationURL = directory.appending(component: "\(prefix) - \(stem)")
         let pathExtension = baseURL.pathExtension
@@ -114,7 +129,9 @@ enum MediaDownloader {
         }
 
         // 5. Generate indexed filename, using UTType for extension when possible
-        var fileURL = directory.appending(component: "\(item.type)_\(String(format: "%03d", index + 1))")
+        // `String(format:)` goes through untyped `CVarArg` varargs, hence `unsafe`.
+        let sequence = unsafe String(format: "%03d", index + 1)
+        var fileURL = directory.appending(component: "\(item.type)_\(sequence)")
         if let mimeType = response?.mimeType,
            let utType = UTType(mimeType: mimeType),
            let ext = utType.preferredFilenameExtension {
@@ -124,14 +141,18 @@ enum MediaDownloader {
     }
 }
 
-private final class RedirectCollector: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
-    private let lock = NSLock()
-    private var _urls: [URL] = []
+private final class RedirectCollector: NSObject, URLSessionTaskDelegate, Sendable {
+    private let urls = Mutex<[URL]>([])
 
     var redirectedURLs: [URL] {
-        lock.withLock { _urls }
+        urls.withLock { $0 }
     }
 
+    // Workaround for a SILGen crash while emitting the ObjC thunk for an `@objc`-exposed
+    // `nonisolated(nonsending)` async method (swiftlang/swift#88789). `@concurrent` restores the
+    // pre-SE-0461 isolation, which this method wants anyway: it only touches lock-guarded state,
+    // so there is nothing to gain from inheriting the caller's executor. Revisit once fixed.
+    @concurrent
     func urlSession(
         _ session: URLSession,
         task: URLSessionTask,
@@ -139,7 +160,7 @@ private final class RedirectCollector: NSObject, URLSessionTaskDelegate, @unchec
         newRequest request: URLRequest
     ) async -> URLRequest? {
         if let url = request.url {
-            lock.withLock { _urls.append(url) }
+            urls.withLock { $0.append(url) }
         }
         return request
     }

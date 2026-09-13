@@ -55,7 +55,7 @@ extension PatronArchiver {
 
         return demoEntries.map { entry in
             let url = URL(string: entry.url)!
-            let provider = PatronServiceManager.shared.provider(for: url)
+            let provider = PatronServiceProviders.provider(for: url)
             let job = ArchiveJob(inputURL: url, provider: provider)
             job.status = entry.status
             job.progress.completedUnitCount = entry.completedUnits

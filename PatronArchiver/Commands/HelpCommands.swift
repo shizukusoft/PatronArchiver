@@ -4,9 +4,9 @@ import MessageUI
 #endif
 
 struct HelpCommands: Commands {
-    @Binding var showTipJarSheet: Bool
+    @FocusedValue(\.showTipJarSheet) private var showTipJarSheet: Binding<Bool>?
     #if os(iOS)
-    @Binding var showMailCompose: Bool
+    @FocusedValue(\.showMailCompose) private var showMailCompose: Binding<Bool>?
     #endif
 
     @Environment(\.openURL) private var openURL
@@ -18,7 +18,7 @@ struct HelpCommands: Commands {
                 FeedbackMailComposer.composeWithSharingService()
                 #elseif canImport(MessageUI)
                 if MFMailComposeViewController.canSendMail() {
-                    showMailCompose = true
+                    showMailCompose?.wrappedValue = true
                 } else if let url = FeedbackMailComposer.mailtoURL {
                     openURL(url)
                 }
@@ -28,12 +28,16 @@ struct HelpCommands: Commands {
                 }
                 #endif
             }
+            #if os(iOS)
+            .disabled(showMailCompose == nil)
+            #endif
 
             Divider()
 
             Button("\(Text("Tip Jar"))...") {
-                showTipJarSheet = true
+                showTipJarSheet?.wrappedValue = true
             }
+            .disabled(showTipJarSheet == nil)
         }
     }
 }
