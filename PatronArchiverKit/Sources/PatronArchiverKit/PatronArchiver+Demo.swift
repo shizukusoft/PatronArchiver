@@ -11,6 +11,8 @@ extension PatronArchiver {
 
     private static func makeDemoJobs() -> [ArchiveJob] {
         let demoEntries: [(url: String, title: String, author: String, siteIdentifier: String, status: JobStatus, completedUnits: Int64)] = [
+            // Oldest first, matching enqueue order. The job list displays these newest first, and the
+            // statuses follow the FIFO queue: finished jobs, then the one running, then queued ones.
             (
                 "https://www.patreon.com/posts/monthly-pack-dec-12345",
                 "Monthly Illustration Pack - December",
@@ -28,6 +30,14 @@ extension PatronArchiver {
                 100
             ),
             (
+                "https://soundworks.fanbox.cc/posts/33333",
+                "Voice Acting Session Recording",
+                "SoundWorks",
+                "pixivFANBOX",
+                .failed(DemoError.networkTimeout),
+                40
+            ),
+            (
                 "https://www.subscribestar.com/posts/animation-process-11111",
                 "Behind the Scenes - Animation Process",
                 "MotionLab",
@@ -42,14 +52,6 @@ extension PatronArchiver {
                 "Patreon",
                 .queued,
                 0
-            ),
-            (
-                "https://soundworks.fanbox.cc/posts/33333",
-                "Voice Acting Session Recording",
-                "SoundWorks",
-                "pixivFANBOX",
-                .failed(DemoError.networkTimeout),
-                40
             ),
         ]
 

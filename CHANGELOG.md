@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Raised the minimum build requirement to Xcode 27 (Swift 6.4)
+- The job list now shows the newest job at the top, so a newly added job is visible right away
 
 ### Removed
 
