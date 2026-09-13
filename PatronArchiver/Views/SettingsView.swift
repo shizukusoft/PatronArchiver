@@ -160,7 +160,7 @@ struct SettingsView: View {
                         .labelsHidden()
                         .frame(width: 80)
                         #if os(macOS)
-                        .textFieldStyle(.roundedBorder)
+                        .roundedTextFieldBorder()
                         #endif
                     Text("ms")
                 }

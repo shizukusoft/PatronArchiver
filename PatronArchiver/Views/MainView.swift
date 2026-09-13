@@ -112,7 +112,7 @@ struct MainView: View {
                     ToolbarItem(placement: .principal) {
                         HStack(spacing: 8) {
                             urlTextField
-                                .textFieldStyle(.roundedBorder)
+                                .roundedTextFieldBorder()
                                 .frame(width: addressFieldWidth)
                             addButton
                         }
