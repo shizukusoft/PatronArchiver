@@ -7,7 +7,8 @@ final class ScreenshotTests: XCTestCase {
 
     private var app: XCUIApplication!
 
-    override func setUpWithError() throws {
+    @MainActor
+    override func setUp() async throws {
         continueAfterFailure = false
 
         app = XCUIApplication()
@@ -27,11 +28,13 @@ final class ScreenshotTests: XCTestCase {
         #endif
     }
 
-    override func tearDownWithError() throws {
+    @MainActor
+    override func tearDown() async throws {
         app.terminate()
         app = nil
     }
 
+    @MainActor
     func testScreenshotMainView() {
         // Wait for app to fully launch
         let textField = app.textFields["urlInput"]

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Raised the minimum build requirement to Xcode 27 (Swift 6.4)
+
+### Removed
+
+- Intel Mac support; the app now ships for Apple silicon only
+
+### Security
+
+- Enhanced Security now runs at version 2, adding guard objects and hardware-checked pointer arithmetic on the arm64e.x1 slice
+
 ## [1.2.0] - 2026-09-13
 
 ### Added

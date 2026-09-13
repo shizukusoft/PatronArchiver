@@ -1,5 +1,5 @@
 {
-  "originHash" : "ee25a8e9c002af0a4b9a1ffe9f7038a1921f7116dcbc0ca948212123f10b5e47",
+  "originHash" : "f1dfb058243ada60bc4f455c4629f9c9df523af34939f43bde657617105430df",
   "pins" : [
     {
       "identity" : "swift-http-structured-headers",
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sinoru/swift-synchronization-kit.git",
       "state" : {
-        "revision" : "edbc49f6ffff044a8d6986df1dae40cdc22038d5",
-        "version" : "0.0.3"
+        "revision" : "73bb4a5a78e8eeecd765fd32a7acdc1f0e7b47fb",
+        "version" : "1.0.1"
       }
     },
     {
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sinoru/swift-user-defaults-kit.git",
       "state" : {
-        "revision" : "0f5e2c3df3ec87214bac7066a708f3b6938b2a08",
-        "version" : "0.0.2"
+        "revision" : "249df47893fa7d553139d6130c469611aefbee8a",
+        "version" : "0.0.3"
       }
     }
   ],
