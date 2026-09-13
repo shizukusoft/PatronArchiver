@@ -34,8 +34,8 @@ Need help or have a question? You can reach us in any of these ways:
 
 ## Requirements
 
-- macOS 15.6+ / iOS 18.6+
-- Xcode 26.4+ (Swift 6.3, for building from source)
+- macOS 15.6+ (Apple silicon only) / iOS 18.6+
+- Xcode 27+ (Swift 6.4, for building from source)
 
 ## Build
 
