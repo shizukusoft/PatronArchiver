@@ -96,8 +96,12 @@ struct PatreonProvider: PatronServiceProviding {
     /// read the post from; the envelope is fetched from the site's own JSON:API instead. The
     /// request is same-origin from the page context, so the session cookies ride along and paid
     /// posts resolve exactly as they do for the page itself.
+    ///
+    /// The post ID is the trailing number of the last path segment after `/posts/`. Anchoring on
+    /// the end keeps numbers inside the slug (e.g. `2026-september-1-169339310`) from being taken
+    /// as the ID.
     private static let postLoaderScript = """
-        const postID = (location.pathname.match(/-(\\d+)[^\\/]*$/) || [])[1];
+        const postID = (location.pathname.match(/\\/posts\\/(?:[^\\/]*-)?(\\d+)\\/?$/) || [])[1];
 
         async function loadPost() {
             if (!postID) return null;
