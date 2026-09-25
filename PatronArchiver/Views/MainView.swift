@@ -13,12 +13,11 @@ struct MainView: View {
     #if os(iOS)
     @State private var showSettings = false
     @Environment(\.openURL) private var openURL
-    #else
-    /// Width for the toolbar URL field, derived from the window width so the
-    /// field grows and shrinks as the window is resized. SwiftUI's toolbar does
-    /// not stretch a principal item to fill, so we size it from measured geometry.
-    @State private var addressFieldWidth: CGFloat = 280
+    /// Width of the add button, measured so the URL field can fill the rest of
+    /// the bottom bar.
+    @State private var addButtonWidth: CGFloat = 0
     #endif
+    @State private var windowWidth: CGFloat = 0
 
     /// Observed rather than read from ``AppSettings`` at the point of use: a static read registers
     /// no SwiftUI dependency, so a Render Width change in Settings would leave this window's web
@@ -69,22 +68,43 @@ struct MainView: View {
         .accessibilityIdentifier("openFolderButton")
     }
 
+    #if os(iOS)
+    /// Distance from the window edge to the bottom bar's content: the bar's
+    /// margin outside its capsule plus the capsule's padding. Measured on
+    /// iOS 26.5 and 27.0, where the system lays these out identically.
+    private static let bottomBarContentInset: CGFloat = 34
+    /// Spacing the bottom bar puts between the URL field and the add button.
+    private static let bottomBarItemSpacing: CGFloat = 14
+    #endif
+
+    /// Width for the toolbar URL field, derived from the window width so the
+    /// field grows and shrinks as the window is resized. SwiftUI's toolbar does
+    /// not stretch an item to fill (the iOS 27 bottom bar sizes it to its text),
+    /// so we size it from measured geometry.
+    private var addressFieldWidth: CGFloat {
+        #if os(iOS)
+        // Fill what the add button leaves, so the bar spans the width as it
+        // did on iOS 26.
+        max(windowWidth - 2 * Self.bottomBarContentInset - Self.bottomBarItemSpacing - addButtonWidth, 0)
+        #else
+        // Size the field to a fraction of the window so the side margins
+        // scale with it; clamp to keep the add button visible at the minimum
+        // width and avoid an over-wide field.
+        min(max(windowWidth * 0.4, 220), 700)
+        #endif
+    }
+
     var body: some View {
         NavigationStack {
             JobListView(archiver: archiver)
                 .background {
                     archiveWebViewArea
                 }
-                #if os(macOS)
                 .onGeometryChange(for: CGFloat.self) { proxy in
                     proxy.size.width
-                } action: { windowWidth in
-                    // Size the field to a fraction of the window so the side
-                    // margins scale with it; clamp to keep the add button visible
-                    // at the minimum width and avoid an over-wide field.
-                    addressFieldWidth = min(max(windowWidth * 0.4, 220), 700)
+                } action: { width in
+                    windowWidth = width
                 }
-                #endif
                 .navigationTitle("PatronArchiver")
                 #if os(iOS)
                 .navigationBarTitleDisplayMode(.large)
@@ -103,7 +123,13 @@ struct MainView: View {
                         urlTextField
                             .keyboardType(.URL)
                             .textInputAutocapitalization(.never)
+                            .frame(width: addressFieldWidth)
                         addButton
+                            .onGeometryChange(for: CGFloat.self) { proxy in
+                                proxy.size.width
+                            } action: { width in
+                                addButtonWidth = width
+                            }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         openFolderButton

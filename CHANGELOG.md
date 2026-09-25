@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Intel Mac support; the app now ships for Apple silicon only
 
+### Fixed
+
+- The URL field in the iPhone and iPad bottom toolbar spans the full width again on iOS 27 instead of shrinking to its text
+
 ### Security
 
 - Enhanced Security now runs at version 2, adding guard objects and hardware-checked pointer arithmetic on the arm64e.x1 slice
