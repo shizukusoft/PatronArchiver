@@ -12,8 +12,8 @@ let package = Package(
     name: "PatronArchiverKit",
     defaultLocalization: "en",
     platforms: [
-        .macOS("15.6"),
-        .iOS("18.6"),
+        .macOS(.v26),
+        .iOS(.v26),
     ],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
