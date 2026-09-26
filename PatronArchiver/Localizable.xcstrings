@@ -359,22 +359,6 @@
         }
       }
     },
-    "PatronArchiver" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PatronArchiver"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "PatronArchiver"
-          }
-        }
-      }
-    },
     "Render Width: %lldpx" : {
       "localizations" : {
         "ja" : {

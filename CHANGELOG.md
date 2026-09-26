@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Raised the minimum build requirement to Xcode 27 (Swift 6.4)
 - The job list now shows the newest job at the top, so a newly added job is visible right away
 - Raised the minimum OS to macOS 26 and iOS 26
+- On iPad and other wide windows, the URL field now sits at the top of the window in one capsule with the Add button, as it does on Mac
+- The main window no longer shows a title, leaving the toolbar to the URL field and its controls
 
 ### Removed
 

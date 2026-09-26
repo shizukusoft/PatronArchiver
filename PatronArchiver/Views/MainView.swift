@@ -13,6 +13,7 @@ struct MainView: View {
     #if os(iOS)
     @State private var showSettings = false
     @Environment(\.openURL) private var openURL
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     /// Width of the add button, measured so the URL field can fill the rest of
     /// the bottom bar.
     @State private var addButtonWidth: CGFloat = 0
@@ -36,8 +37,34 @@ struct MainView: View {
     @ViewBuilder
     private var urlTextField: some View {
         TextField("Enter post URL...", text: $urlText)
+            #if os(iOS)
+            .keyboardType(.URL)
+            .textInputAutocapitalization(.never)
+            #endif
             .accessibilityIdentifier("urlInput")
             .onSubmit { Task { await submitURL() } }
+    }
+
+    /// The URL field and add button as they sit in the center of the top
+    /// toolbar, in a regular-width window.
+    private var addressBar: some View {
+        HStack(spacing: 8) {
+            urlTextField
+                #if os(macOS)
+                .textFieldStyle(.plain)
+                #endif
+                .frame(width: addressFieldWidth)
+            addButton
+        }
+        .padding(.horizontal)
+        #if os(iOS)
+        // The top bar gives its principal item no background of its own, so
+        // draw the capsule the bottom bar puts around the same controls in a
+        // compact window. 44pt is the HIG's default control size on iOS,
+        // which the bar's own buttons also meet.
+        .frame(minHeight: 44)
+        .glassEffect(.regular.interactive())
+        #endif
     }
 
     @ViewBuilder
@@ -83,15 +110,16 @@ struct MainView: View {
     /// so we size it from measured geometry.
     private var addressFieldWidth: CGFloat {
         #if os(iOS)
-        // Fill what the add button leaves, so the bar spans the width as it
-        // did on iOS 26.
-        max(windowWidth - 2 * Self.bottomBarContentInset - Self.bottomBarItemSpacing - addButtonWidth, 0)
-        #else
+        if horizontalSizeClass == .compact {
+            // Fill what the add button leaves, so the bottom bar spans the
+            // width as it did on iOS 26.
+            return max(windowWidth - 2 * Self.bottomBarContentInset - Self.bottomBarItemSpacing - addButtonWidth, 0)
+        }
+        #endif
         // Size the field to a fraction of the window so the side margins
         // scale with it; clamp to keep the add button visible at the minimum
         // width and avoid an over-wide field.
-        min(max(windowWidth * 0.4, 220), 700)
-        #endif
+        return min(max(windowWidth * 0.4, 220), 700)
     }
 
     var body: some View {
@@ -105,9 +133,8 @@ struct MainView: View {
                 } action: { width in
                     windowWidth = width
                 }
-                .navigationTitle("PatronArchiver")
                 #if os(iOS)
-                .navigationBarTitleDisplayMode(.large)
+                .navigationBarTitleDisplayMode(.inline)
                 #endif
                 .toolbar {
                     #if os(iOS)
@@ -119,35 +146,39 @@ struct MainView: View {
                         }
                         .accessibilityIdentifier("settingsButton")
                     }
-                    ToolbarItemGroup(placement: .bottomBar) {
-                        urlTextField
-                            .keyboardType(.URL)
-                            .textInputAutocapitalization(.never)
-                            .frame(width: addressFieldWidth)
-                        addButton
-                            .onGeometryChange(for: CGFloat.self) { proxy in
-                                proxy.size.width
-                            } action: { width in
-                                addButtonWidth = width
-                            }
+                    // A compact window keeps the field within thumb reach at the
+                    // bottom; a regular one centers it at the top, as on macOS.
+                    if horizontalSizeClass == .compact {
+                        ToolbarItemGroup(placement: .bottomBar) {
+                            urlTextField
+                                .frame(width: addressFieldWidth)
+                            addButton
+                                .onGeometryChange(for: CGFloat.self) { proxy in
+                                    proxy.size.width
+                                } action: { width in
+                                    addButtonWidth = width
+                                }
+                        }
+                    } else {
+                        ToolbarItem(placement: .principal) {
+                            addressBar
+                        }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         openFolderButton
                     }
                     #else
                     ToolbarItem(placement: .principal) {
-                        HStack(spacing: 8) {
-                            urlTextField
-                                .roundedTextFieldBorder()
-                                .frame(width: addressFieldWidth)
-                            addButton
-                        }
+                        addressBar
                     }
                     ToolbarItem(placement: .primaryAction) {
                         openFolderButton
                     }
                     #endif
                 }
+                #if os(macOS)
+                .toolbar(removing: .title)
+                #endif
                 #if os(iOS)
                 .sheet(isPresented: $showSettings) {
                     NavigationStack {
