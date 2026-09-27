@@ -54,15 +54,20 @@ struct MainView: View {
                 .textFieldStyle(.plain)
                 #endif
                 .frame(width: addressFieldWidth)
+            // The button sits flush against the capsule's end, so its glyph
+            // centers in the rounded end rather than floating between the
+            // text and the edge.
             addButton
+                #if os(iOS)
+                .frame(width: Self.controlSize, height: Self.controlSize)
+                #endif
         }
-        .padding(.horizontal)
+        .padding(.leading)
         #if os(iOS)
         // The top bar gives its principal item no background of its own, so
         // draw the capsule the bottom bar puts around the same controls in a
-        // compact window. 44pt is the HIG's default control size on iOS,
-        // which the bar's own buttons also meet.
-        .frame(minHeight: 44)
+        // compact window.
+        .frame(minHeight: Self.controlSize)
         .glassEffect(.regular.interactive())
         #endif
     }
@@ -96,12 +101,24 @@ struct MainView: View {
     }
 
     #if os(iOS)
+    /// The HIG's default control size on iOS, which the bars' own buttons also
+    /// meet: the address bar capsule's height, and the square the add button
+    /// fills at its end.
+    private static let controlSize: CGFloat = 44
     /// Distance from the window edge to the bottom bar's content: the bar's
     /// margin outside its capsule plus the capsule's padding. Measured on
     /// iOS 26.5 and 27.0, where the system lays these out identically.
     private static let bottomBarContentInset: CGFloat = 34
     /// Spacing the bottom bar puts between the URL field and the add button.
     private static let bottomBarItemSpacing: CGFloat = 14
+    /// Extra inset for the field's leading edge. The bottom bar keeps its
+    /// items only 5pt from its capsule's ends, so this brings the text to the
+    /// 16pt the top bar's address bar pads by; the add button needs none, as
+    /// the room its hit area leaves around the glyph already makes up the
+    /// rest. The items stay separate bar items rather than one padded view,
+    /// because a text field nested inside a bottom bar item doesn't take focus
+    /// on tap.
+    private static let bottomBarLeadingPadding: CGFloat = 11
     #endif
 
     /// Width for the toolbar URL field, derived from the window width so the
@@ -151,6 +168,7 @@ struct MainView: View {
                     if horizontalSizeClass == .compact {
                         ToolbarItemGroup(placement: .bottomBar) {
                             urlTextField
+                                .padding(.leading, Self.bottomBarLeadingPadding)
                                 .frame(width: addressFieldWidth)
                             addButton
                                 .onGeometryChange(for: CGFloat.self) { proxy in
