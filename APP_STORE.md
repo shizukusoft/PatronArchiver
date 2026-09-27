@@ -19,7 +19,7 @@ Save your favorite creator posts for offline reading. Preserve posts from Patreo
 PatronArchiver makes it easy to save posts from your favorite creator platforms directly to your device. Whether you want to keep a personal backup or read content offline, PatronArchiver has you covered.
 
 Save in Multiple Formats
-Each post is archived as a PDF, an MHTML web archive, and individual media files — all neatly organized in a single folder. Choose the format that works best for you.
+Each post is archived as a web archive, a PDF, and individual media files — all neatly organized in a single folder. Pick the formats that work best for you: Apple's native web archive, the widely supported MHTML, PDF, or any combination.
 
 Keep Everything Offline
 Once archived, your saved posts are yours to keep. Read them anytime, anywhere — no internet connection required.
@@ -96,7 +96,7 @@ PatronArchiver
 PatronArchiver를 사용하면 좋아하는 크리에이터 플랫폼의 게시물을 기기에 바로 저장할 수 있습니다. 개인 백업을 보관하거나 오프라인으로 콘텐츠를 읽고 싶을 때, PatronArchiver가 도와드립니다.
 
 다양한 형식으로 저장
-각 게시물은 PDF, MHTML 웹 아카이브, 개별 미디어 파일로 저장되며, 하나의 폴더에 깔끔하게 정리됩니다. 원하는 형식을 선택하여 사용하세요.
+각 게시물은 웹 아카이브, PDF, 개별 미디어 파일로 저장되며, 하나의 폴더에 깔끔하게 정리됩니다. Apple의 기본 웹 아카이브 형식, 널리 지원되는 MHTML, PDF 중 원하는 형식을 자유롭게 조합하여 선택하세요.
 
 완전한 오프라인 보관
 아카이브된 게시물은 영구적으로 보관됩니다. 인터넷 연결 없이 언제 어디서나 읽을 수 있습니다.
@@ -173,7 +173,7 @@ PatronArchiver
 PatronArchiverを使えば、お気に入りのクリエイタープラットフォームの投稿をデバイスに直接保存できます。個人的なバックアップを取りたい時も、オフラインでコンテンツを読みたい時も、PatronArchiverにお任せください。
 
 複数のフォーマットで保存
-各投稿はPDF、MHTMLウェブアーカイブ、個別のメディアファイルとして保存され、ひとつのフォルダにきれいに整理されます。お好みのフォーマットを選んでお使いください。
+各投稿はウェブアーカイブ、PDF、個別のメディアファイルとして保存され、ひとつのフォルダにきれいに整理されます。Apple標準のウェブアーカイブ形式、広く対応されているMHTML、PDFから、お好みの組み合わせを選んでお使いください。
 
 すべてをオフラインで保管
 アーカイブした投稿はずっと保存されます。インターネット接続なしで、いつでもどこでも読むことができます。

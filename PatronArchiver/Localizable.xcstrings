@@ -263,6 +263,25 @@
         }
       }
     },
+    "Formats" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フォーマット"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "형식"
+          }
+        }
+      }
+    },
+    "MHTML" : {
+      "shouldTranslate" : false
+    },
     "Metadata" : {
       "localizations" : {
         "ja" : {
@@ -358,6 +377,9 @@
           }
         }
       }
+    },
+    "PDF" : {
+      "shouldTranslate" : false
     },
     "Render Width: %lldpx" : {
       "localizations" : {
@@ -643,6 +665,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "확인 실패"
+          }
+        }
+      }
+    },
+    "Web Archive" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ウェブアーカイブ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "웹 아카이브"
           }
         }
       }

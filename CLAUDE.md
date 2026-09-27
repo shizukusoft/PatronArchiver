@@ -10,10 +10,13 @@
 
 - Setting `img.src` directly, or changing CSS classes / `style` attributes, is forbidden. Instead, drive the site's own JS state transitions by scrolling via `LazyContentLoader`.
 - DOM **reads** (querySelector, getComputedStyle, outerHTML) are allowed.
-- The only exception: minimal, unavoidable mutations required for MHTML serialization. Allowed scope:
-  1. **Mutable stylesheet reconstruction**: When styled-components and similar libraries mutate the CSSOM at runtime, `style.textContent` (the original) diverges from `sheet.cssRules` (what's actually applied). Without replacing with `cssRules` before the `outerHTML` capture, styles will break in the resulting MHTML.
+- The only exception: minimal, unavoidable mutations required for markup serialization — WebArchive and MHTML alike — implemented once in `WKWebView.prepareDOMForSerialization()`. Allowed scope:
+  1. **Mutable stylesheet reconstruction**: When styled-components and similar libraries mutate the CSSOM at runtime, `style.textContent` (the original) diverges from `sheet.cssRules` (what's actually applied). Without replacing with `cssRules` before the capture, styles will break in the resulting archive.
   2. **Adopted stylesheet injection**: `document.adoptedStyleSheets` does not exist in the DOM, so it is not included in `outerHTML`. It must be injected as a `<style>` element to be captured.
   3. **`</style>` escaping**: If a `</style` sequence appears inside a `<style>` element, the HTML parser will misidentify the tag boundary. It must be replaced with the CSS hex escape (`\3C`).
+- **WebKit validation reference** (`Source/WebCore/loader/archive/cf/LegacyWebArchive.cpp`, `Source/WebCore/editing/MarkupAccumulator.cpp`):
+  - The public `WKWebView.createWebArchiveData` path (`WebPage::getWebArchivesForFrames` → `LegacyWebArchive::create(document, …)` with an empty `mainResourceFileName`) serializes the **live DOM** with plain `serializeFragment`. So lazy-loaded content is included, but `<style>` elements are written from their text children as-is.
+  - `MarkupAccumulator::appendContentsForNode` only rewrites a `<style>` from `CSSStyleSheet::cssText` when a serialization context is set, which happens solely on the Safari Save-As path (`getWebArchiveOfFrameWithFileName`). Nothing in WebKit handles `adoptedStyleSheets`. Hence the same DOM preparation is required before a webarchive as before MHTML.
 - **Chromium validation reference** (`third_party/blink/renderer/core/frame/frame_serializer.cc`):
   - Chrome performs the same three operations. The difference is that Blink uses internal APIs (`IsMutable()`, `CSSRule::cssText()`), whereas we compare the CSSOM directly from JS.
   - Chrome comment: *"CSS serialization isn't perfect, it's better to leave the original `<style>` element if possible"* (L689) — reconstructing via `cssText` loses comments, whitespace, shorthand, etc., so selectively reconstructing only the JS-mutated stylesheets is the best approach.
@@ -23,7 +26,7 @@
 
 ### LazyContentLoader ↔ dumper responsibility boundary
 
-Bringing content to a fully loaded state is **the responsibility of `LazyContentLoader` (`WKWebView.loadLazyContent`)**. Page dumpers (MHTML, PDF) only capture the current DOM as-is. Do not try to solve loading issues inside the dumpers.
+Bringing content to a fully loaded state is **the responsibility of `LazyContentLoader` (`WKWebView.loadLazyContent`)**. Page dumpers (WebArchive, MHTML, PDF) only capture the current DOM as-is. Do not try to solve loading issues inside the dumpers.
 
 ### No third-party dependencies
 

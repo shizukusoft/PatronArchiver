@@ -290,7 +290,23 @@ extension PatronArchiver {
             try await baseDir.withSecurityScopedAccess {
                 let tempDir = try await Self.makeStagingDirectory(for: baseDir)
                 staging = (tempDir, baseDir)
-                let fileStem = try Self.pageFileStem(for: pageTitle)
+
+                // The setting is read once here so a change made while the job runs cannot leave
+                // it with, say, a webarchive from one choice and a PDF from another. An empty set
+                // is a valid choice and means media only.
+                let formats = AppSettings.archiveFormats.wrappedValue
+                let steps: [(ArchiveFormats, String, @MainActor (URL) async throws -> Void)] = [
+                    (.webArchive, "webarchive", webView.writeWebArchive),
+                    (.mhtml, "mhtml", MHTMLArchiver(webView, urlSession: Self.urlSession).write),
+                    (.pdf, "pdf", webView.writeFullPagePDF),
+                ].filter { formats.contains($0.0) }
+
+                // Resolved before any download starts, so a title that cannot become a file name
+                // fails the job before it has fetched anything. A media-only save names no page
+                // file, so it has no reason to fail on the title at all.
+                let fileStem = try steps.isEmpty
+                    ? ""
+                    : Self.pageFileStem(for: pageTitle, fitting: steps.map(\.1))
 
                 // Start media download in background (no WebView dependency)
                 Self.logger.debug("Starting media download concurrently...")
@@ -312,20 +328,19 @@ extension PatronArchiver {
                     }
                 )
 
-                // MHTML + PDF on WebView (sequential, needs WebView). Both are written straight
-                // into staging as they are produced rather than carried around as `Data`: an
-                // archive of an image-heavy post is the largest thing this job would otherwise hold.
-                let mhtmlURL = tempDir.appending(component: "\(fileStem).mhtml")
-                let pdfURL = tempDir.appending(component: "\(fileStem).pdf")
-
-                Self.logger.debug("Generating MHTML...")
-                try await MHTMLArchiver(webView, urlSession: Self.urlSession).write(to: mhtmlURL)
-                Self.logger.debug("MHTML written")
-                job.progress.completedUnitCount = 50
-
-                Self.logger.debug("Generating PDF...")
-                try await webView.writeFullPagePDF(to: pdfURL)
-                Self.logger.debug("PDF written")
+                // Page formats on WebView (sequential, needs WebView). Each is written straight
+                // into staging as it is produced rather than carried around as `Data`: an archive
+                // of an image-heavy post is the largest thing this job would otherwise hold.
+                var pageFiles: [URL] = []
+                for (index, (_, fileExtension, write)) in steps.enumerated() {
+                    let url = tempDir.appending(component: "\(fileStem).\(fileExtension)")
+                    Self.logger.debug("Generating \(fileExtension, privacy: .public)...")
+                    try await write(url)
+                    Self.logger.debug("\(fileExtension, privacy: .public) written")
+                    pageFiles.append(url)
+                    // The formats share the 40–60 span, however many of them there are.
+                    job.progress.completedUnitCount = 40 + Int64((index + 1) * 20 / steps.count)
+                }
                 let alreadyCompleted = completedMediaCount.load(ordering: .relaxed)
                 job.progress.completedUnitCount = 60 + Int64(alreadyCompleted * 20 / max(totalMedia, 1))
 
@@ -340,7 +355,7 @@ extension PatronArchiver {
                 Self.logger.debug("Preparing save to: \(baseDir.path(), privacy: .private)")
                 let preparedSave = try await Self.prepareSave(
                     of: metadata,
-                    pageFiles: [mhtmlURL, pdfURL],
+                    pageFiles: pageFiles,
                     downloadedMedia: downloadedMedia,
                     in: tempDir,
                     to: baseDir,

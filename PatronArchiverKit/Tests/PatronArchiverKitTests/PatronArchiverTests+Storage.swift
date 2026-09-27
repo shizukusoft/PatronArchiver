@@ -69,4 +69,27 @@ extension PatronArchiverTests {
         #expect(!lastComponent.contains("/"))
         #expect(!lastComponent.contains(":"))
     }
+
+    /// A title that fits once `.pdf` is appended can still overflow with `.webarchive`, so the stem
+    /// is cut against the longest extension in play — and shared by every page file.
+    @Test func pageFileStemLeavesRoomForLongestExtension() throws {
+        let title = String(repeating: "a", count: 250)
+        let stem = try PatronArchiver.pageFileStem(for: title, fitting: ["pdf", "webarchive"])
+
+        #expect("\(stem).webarchive".utf8.count == 255)
+        #expect("\(stem).pdf".utf8.count <= 255)
+    }
+
+    @Test func pageFileStemCutsMultibyteTitleOnCharacterBoundary() throws {
+        let title = String(repeating: "가", count: 100) // 300 bytes in UTF-8
+        let stem = try PatronArchiver.pageFileStem(for: title, fitting: ["webarchive"])
+
+        #expect("\(stem).webarchive".utf8.count <= 255)
+        #expect(stem.allSatisfy { $0 == "가" })
+    }
+
+    @Test func pageFileStemKeepsShortTitle() throws {
+        let stem = try PatronArchiver.pageFileStem(for: "  Short: Title  ", fitting: ["webarchive"])
+        #expect(stem == "Short\\ Title")
+    }
 }

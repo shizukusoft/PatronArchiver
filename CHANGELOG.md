@@ -7,8 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Posts can now be saved as WebArchive, Apple's native web archive format, alongside or instead of MHTML
+- Settings now has a Formats section to choose any combination of WebArchive, MHTML, and PDF, including none for media-only archives
+
 ### Changed
 
+- Posts are now saved as WebArchive and PDF by default; MHTML, which every post used to get, is off unless turned on in Settings
 - Raised the minimum build requirement to Xcode 27 (Swift 6.4)
 - The job list now shows the newest job at the top, so a newly added job is visible right away
 - Raised the minimum OS to macOS 26 and iOS 26
@@ -22,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - The URL field in the iPhone and iPad bottom toolbar spans the full width again on iOS 27 instead of shrinking to its text
+- Posts with very long titles failed to save, discarding their downloaded media, because the file extension pushed the page file's name past the file system's limit
 
 ### Security
 

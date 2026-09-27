@@ -25,6 +25,11 @@ public enum AppSettings {
     public static let includesWhereFroms = UserDefault(key: "includesWhereFroms", defaultValue: true)
     public static let includesFinderTags = UserDefault(key: "includesFinderTags", defaultValue: true)
     public static let includesContentDates = UserDefault(key: "includesContentDates", defaultValue: true)
+    /// Stored as one integer — see ``ArchiveFormats`` for why its bits must never move.
+    public static let archiveFormats = UserDefault<ArchiveFormats>(
+        key: "archiveFormats",
+        defaultValue: [.webArchive, .pdf]
+    )
 
     // MARK: - Derived
 

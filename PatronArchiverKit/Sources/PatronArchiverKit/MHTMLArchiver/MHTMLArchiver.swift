@@ -34,12 +34,13 @@ struct MHTMLArchiver {
             throw MHTMLError.noPageURL
         }
 
-        // 1. Snapshot loaded resources via webarchive (browser cache, no network)
+        // 1. Write runtime-only styles back into the DOM so the outerHTML capture below sees them
+        try await webView.prepareDOMForSerialization()
+
+        // 2. Snapshot loaded resources via webarchive (browser cache, no network)
         let cache: [String: Resource]
         do {
-            let webArchiveData: Data = try await withCheckedThrowingContinuation { continuation in
-                webView.createWebArchiveData { continuation.resume(with: $0) }
-            }
+            let webArchiveData = try await webView.webArchiveData()
             let cachedResources = await Self.parseWebArchiveResources(webArchiveData)
             cache = Dictionary(
                 cachedResources.map { ($0.url.absoluteString, $0) },
@@ -49,11 +50,10 @@ struct MHTMLArchiver {
             cache = [:]
         }
 
-        // 2. Run JS to modify DOM (mutable stylesheets, adopted stylesheets, etc.)
-        //    and capture outerHTML + resource URLs + iframe info
+        // 3. Capture outerHTML + resource URLs + iframe info
         let collectResult = try await collectPageResources()
 
-        // 3. Resolve resources: webarchive cache first, URLSession fallback
+        // 4. Resolve resources: webarchive cache first, URLSession fallback
         let dataStore = webView.configuration.websiteDataStore
 
         let requestedURLs = collectResult.resourceURLs.compactMap { URL(string: $0) }
@@ -73,7 +73,7 @@ struct MHTMLArchiver {
         )
         resources.append(contentsOf: downloaded)
 
-        // 4. CSS 2nd pass: extract sub-resource URLs, resolve from cache or download
+        // 5. CSS 2nd pass: extract sub-resource URLs, resolve from cache or download
         let resolvedURLs = Set(resources.map(\.url.absoluteString))
         let cssSubresourceURLs = await Self.extractCSSSubresourceURLs(from: resources)
             .filter { !resolvedURLs.contains($0.absoluteString) }
@@ -91,14 +91,14 @@ struct MHTMLArchiver {
             urls: missingCSSURLs, dataStore: dataStore, urlSession: urlSession
         ))
 
-        // 5. Iframe sub-documents
+        // 6. Iframe sub-documents
         let iframeResources = await Self.collectIframeResources(
             iframes: collectResult.iframes, dataStore: dataStore, urlSession: urlSession
         )
 
         let allResources = resources + cssResources + iframeResources
 
-        // 6. Assemble MHTML
+        // 7. Assemble MHTML
         try await Self.writeMHTML(
             pageURL: pageURL,
             title: collectResult.title,
@@ -210,44 +210,6 @@ extension MHTMLArchiver {
                 for (const m of matches) {
                     if (m[1].startsWith('data:')) continue;
                     try { resources.add(new URL(m[1], location.href).href); } catch {}
-                }
-            });
-
-            // --- Serialize mutable stylesheets (styled-components, etc.) ---
-
-            document.querySelectorAll('style').forEach(style => {
-                if (!style.sheet) return;
-                try {
-                    const cssomText = Array.from(style.sheet.cssRules).map(r => r.cssText).join('\\n');
-                    const sourceText = style.textContent.trim();
-                    // Replace if CSSOM differs from source (mutable stylesheet)
-                    if (cssomText && cssomText !== sourceText) {
-                        style.textContent = cssomText;
-                    }
-                } catch {}
-            });
-
-            // --- Adopted stylesheets ---
-
-            if (document.adoptedStyleSheets && document.adoptedStyleSheets.length > 0) {
-                for (const sheet of document.adoptedStyleSheets) {
-                    try {
-                        const cssText = Array.from(sheet.cssRules).map(r => r.cssText).join('\\n');
-                        if (cssText) {
-                            const styleEl = document.createElement('style');
-                            styleEl.setAttribute('data-adopted-stylesheet', '');
-                            styleEl.textContent = cssText;
-                            document.head.appendChild(styleEl);
-                        }
-                    } catch {}
-                }
-            }
-
-            // --- Escape </style> inside <style> tags to prevent MHTML parser breakage ---
-
-            document.querySelectorAll('style').forEach(style => {
-                if (style.textContent.includes('</style')) {
-                    style.textContent = style.textContent.replace(/<\\/style/gi, '\\\\3C /style');
                 }
             });
 
