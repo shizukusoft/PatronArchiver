@@ -98,8 +98,8 @@ jobs:
           # Xcode toolchain. The image ships only the iOS 27.0 runtime, so
           # the iOS 26 entries install theirs on demand.
           - platform: iOS
-            destination-name: iOS 27 - iPhone 17 Pro Max
-            device-name: iPhone 17 Pro Max
+            destination-name: iOS 27 - iPhone 18 Pro Max
+            device-name: iPhone 18 Pro Max
             os-version: '27.0'
             runs-on: xcode-27
           - platform: iOS
