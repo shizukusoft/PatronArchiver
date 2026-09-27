@@ -1,5 +1,5 @@
 {
-  "originHash" : "3c1db8a996f073226fffc660d7e571cac24fed29d2fc4e61d2113143518662cf",
+  "originHash" : "7a9d27052f437e8175143d797a59a6b8fca64bea4cd34ca902c8f969e547afee",
   "pins" : [
     {
       "identity" : "swift-http-structured-headers",
