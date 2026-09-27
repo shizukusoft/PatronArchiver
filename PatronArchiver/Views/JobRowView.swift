@@ -29,8 +29,7 @@ struct JobRowView: View {
                         .controlSize(.small)
                     }
                 } else if job.status.isInProgress {
-                    ProgressView(value: Double(job.progress.completedUnitCount),
-                                 total: Double(job.progress.totalUnitCount))
+                    ProgressView(value: job.fractionCompleted)
                 }
             }
             Spacer()
@@ -104,17 +103,33 @@ struct JobRowView: View {
     }
 
     private var statusText: Text {
+        let separator = Text(verbatim: " · ")
+            .foregroundStyle(.tertiary)
+        var status = Text(job.status.displayName)
+            .foregroundStyle(.secondary)
+        if let mediaCountText {
+            status = Text("\(status)\(separator)\(mediaCountText)")
+        }
         if let provider = job.provider {
             let site = Text(type(of: provider).siteIdentifier)
                 .foregroundStyle(.tertiary)
-            let separator = Text(verbatim: " · ")
-                .foregroundStyle(.tertiary)
-            let status = Text(job.status.displayName)
-                .foregroundStyle(.secondary)
             return Text("\(site)\(separator)\(status)")
         }
-        return Text(job.status.displayName)
-            .foregroundStyle(.secondary)
+        return status
+    }
+
+    /// Downloaded out of total media files, while the downloads are running. Media downloads
+    /// alongside the page formats, so it counts during dumping as well.
+    private var mediaCountText: Text? {
+        switch job.status {
+        case .dumping, .downloading:
+            guard job.mediaCount > 0 else { return nil }
+            return Text(verbatim: "\(job.downloadedMediaCount)/\(job.mediaCount)")
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        default:
+            return nil
+        }
     }
 
     @ViewBuilder

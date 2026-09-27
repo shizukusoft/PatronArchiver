@@ -23,11 +23,18 @@ struct MediaDownloader: Sendable {
         self.urlSession = urlSession
     }
 
-    /// Downloads `items` into `directory`, calling `onFileDownloaded` as each one finishes.
+    /// Downloads `items` into `directory`.
+    ///
+    /// - Parameters:
+    ///   - items: The media to download.
+    ///   - directory: Where the downloaded files are placed.
+    ///   - progress: A progress with one unit per item. Each transfer's own progress is attached
+    ///     to it as a child, so it advances with the bytes received wherever the server declares
+    ///     a length, and a whole unit at a time wherever it does not.
     func download(
         _ items: [MediaItem],
         to directory: URL,
-        onFileDownloaded: (@Sendable () -> Void)? = nil
+        progress: Progress? = nil
     ) async throws -> [DownloadedMedia] {
         // Batch urlRequest creation to minimize main actor hops
         var requests: [URL: URLRequest] = [:]
@@ -41,10 +48,10 @@ struct MediaDownloader: Sendable {
             for (index, item) in items.enumerated() {
                 let request = requests[item.url]!
                 group.addTask {
-                    let redirectCollector = RedirectCollector()
+                    let observer = DownloadTaskObserver(progress: progress)
                     let (tempURL, response) = try await urlSession.download(
                         for: request,
-                        delegate: redirectCollector
+                        delegate: observer
                     )
 
                     // A 404 or 500 arrives as a normal download, error page and all. Only the
@@ -71,7 +78,7 @@ struct MediaDownloader: Sendable {
                     return DownloadedMedia(
                         item: item,
                         localURL: destinationURL,
-                        downloadRedirects: redirectCollector.redirectedURLs
+                        downloadRedirects: observer.redirectedURLs
                     )
                 }
             }
@@ -79,7 +86,6 @@ struct MediaDownloader: Sendable {
             var results: [DownloadedMedia] = []
             for try await media in group {
                 if let media { results.append(media) }
-                onFileDownloaded?()
             }
             return results
         }
@@ -149,11 +155,24 @@ struct MediaDownloader: Sendable {
     }
 }
 
-private final class RedirectCollector: NSObject, URLSessionTaskDelegate, Sendable {
+/// Follows one download's task: collects the redirects it takes, and attaches its progress to the
+/// batch's.
+private final class DownloadTaskObserver: NSObject, URLSessionTaskDelegate, Sendable {
+    private let progress: Progress?
     private let urls = Mutex<[URL]>([])
+
+    init(progress: Progress?) {
+        self.progress = progress
+    }
 
     var redirectedURLs: [URL] {
         urls.withLock { $0 }
+    }
+
+    // The async `download(for:delegate:)` never hands back its task, so this is the one place its
+    // progress can be reached.
+    func urlSession(_ session: URLSession, didCreateTask task: URLSessionTask) {
+        progress?.addChild(task.progress, withPendingUnitCount: 1)
     }
 
     // Workaround for a SILGen crash while emitting the ObjC thunk for an `@objc`-exposed

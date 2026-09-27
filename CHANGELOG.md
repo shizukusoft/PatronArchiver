@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Posts can now be saved as WebArchive, Apple's native web archive format, alongside or instead of MHTML
 - Settings now has a Formats section to choose any combination of WebArchive, MHTML, and PDF, including none for media-only archives
+- While media downloads, the job row shows how many files are done, and its progress bar advances with each file's bytes as they arrive
 
 ### Changed
 
@@ -31,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Posts with very long titles failed to save, discarding their downloaded media, because the file extension pushed the page file's name past the file system's limit
 - A media file the server refused, with a 404 or 500 for instance, was saved with the error page as its contents and the job reported as completed; the job now fails and says why
 - A post whose page came back as a server error page was archived as-is; the job now fails instead
+- A job's progress bar stood still while it saved the page and downloaded media, then jumped ahead, and never showed the Downloading status
 
 ### Security
 

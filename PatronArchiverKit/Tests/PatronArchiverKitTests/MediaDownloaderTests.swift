@@ -10,12 +10,22 @@ private final class StubURLProtocol: URLProtocol {
     struct Stub: Sendable {
         let statusCode: Int
         let body: Data
+        let chunkCount: Int
     }
 
     static let stubs = Mutex<[URL: Stub]>([:])
 
-    static func stub(_ url: URL, statusCode: Int, body: Data = Data("payload".utf8)) {
-        stubs.withLock { $0[url] = Stub(statusCode: statusCode, body: body) }
+    /// - Parameter chunkCount: How many pieces to deliver the body in, pausing between them so a
+    ///   transfer's progress has time to be seen partway.
+    static func stub(
+        _ url: URL,
+        statusCode: Int,
+        body: Data = Data("payload".utf8),
+        chunkCount: Int = 1
+    ) {
+        stubs.withLock {
+            $0[url] = Stub(statusCode: statusCode, body: body, chunkCount: chunkCount)
+        }
     }
 
     override class func canInit(with request: URLRequest) -> Bool { true }
@@ -33,10 +43,21 @@ private final class StubURLProtocol: URLProtocol {
             url: url,
             statusCode: stub.statusCode,
             httpVersion: "HTTP/1.1",
-            headerFields: ["Content-Type": "application/octet-stream"]
+            headerFields: [
+                "Content-Type": "application/octet-stream",
+                "Content-Length": String(stub.body.count),
+            ]
         )!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
-        client?.urlProtocol(self, didLoad: stub.body)
+        let chunkSize = stub.body.count / stub.chunkCount
+        for index in 0..<stub.chunkCount {
+            if index > 0 {
+                Thread.sleep(forTimeInterval: 0.02)
+            }
+            let start = index * chunkSize
+            let end = index == stub.chunkCount - 1 ? stub.body.count : start + chunkSize
+            client?.urlProtocol(self, didLoad: stub.body.subdata(in: start..<end))
+        }
         client?.urlProtocolDidFinishLoading(self)
     }
 
@@ -114,6 +135,45 @@ struct MediaDownloaderTests {
         #expect(error?.url == item.url)
     }
 
+    @Test func reportsEachDownloadAsOneUnitOfProgress() async throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let items = [item("first.png"), item("second.png"), item("third.png")]
+        for item in items {
+            StubURLProtocol.stub(item.url, statusCode: 200)
+        }
+        let progress = Progress.discreteProgress(totalUnitCount: Int64(items.count))
+
+        _ = try await downloader.download(items, to: directory, progress: progress)
+
+        #expect(progress.completedUnitCount == 3)
+        #expect(progress.fractionCompleted == 1)
+    }
+
+    @Test func reportsATransferPartway() async throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let item = item("large.mp4")
+        StubURLProtocol.stub(
+            item.url,
+            statusCode: 200,
+            body: Data(repeating: 0xAB, count: 256 * 1024),
+            chunkCount: 8
+        )
+        let progress = Progress.discreteProgress(totalUnitCount: 1)
+        let fractions = FractionLog()
+        // `@Sendable` so it is not taken as main-actor-isolated like the rest of this suite: KVO
+        // calls it on URLSession's thread.
+        let observation = progress.observe(\.fractionCompleted) { @Sendable progress, _ in
+            fractions.append(progress.fractionCompleted)
+        }
+        defer { observation.invalidate() }
+
+        _ = try await downloader.download([item], to: directory, progress: progress)
+
+        // Somewhere between nothing and done: the bytes moved it, not only the file finishing.
+        #expect(fractions.values.contains { $0 > 0 && $0 < 1 }, "\(fractions.values)")
+        #expect(progress.fractionCompleted == 1)
+    }
+
     @Test func oneRefusalFailsTheBatch() async throws {
         defer { try? FileManager.default.removeItem(at: directory) }
         let good = item("good.png")
@@ -124,5 +184,17 @@ struct MediaDownloaderTests {
         await #expect(throws: HTTPStatusError.self) {
             try await downloader.download([good, bad], to: directory)
         }
+    }
+}
+
+private final class FractionLog: Sendable {
+    private let log = Mutex<[Double]>([])
+
+    var values: [Double] {
+        log.withLock { $0 }
+    }
+
+    func append(_ fraction: Double) {
+        log.withLock { $0.append(fraction) }
     }
 }

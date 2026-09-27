@@ -1,6 +1,5 @@
 import Foundation
 import OSLog
-import Synchronization
 import WebKit
 
 @MainActor
@@ -126,6 +125,9 @@ extension PatronArchiver {
     public func cancelJob(_ job: ArchiveJob) {
         activeTasks[job.id]?.cancel()
         activeTasks[job.id] = nil
+        // The cancelled run may take a while to unwind, and anything it still reports in that time
+        // is about work that no longer counts.
+        job.currentProgress = nil
         commitTasks[job.id]?.cancel()
         commitTasks[job.id] = nil
         discardPendingSaveIfNeeded(job)
@@ -143,7 +145,8 @@ extension PatronArchiver {
     public func retryJob(_ job: ArchiveJob) {
         discardPendingSaveIfNeeded(job)
         job.status = .queued
-        job.progress = Progress(totalUnitCount: 100)
+        job.fractionCompleted = 0
+        job.downloadedMediaCount = 0
         job.metadata = nil
         job.mediaItems = []
         startJobIfPossible(job)
@@ -206,6 +209,9 @@ extension PatronArchiver {
         // the access it was created under — and the `catch` below is outside that access.
         var staging: (directory: URL, baseDirectory: URL)?
 
+        let progress = JobProgress(for: job)
+        defer { progress.stop() }
+
         do {
             // WKWebView only renders while attached to a window; wait for the SwiftUI representable
             // to attach it before any rendering-dependent step. If it never attaches — the window
@@ -223,7 +229,6 @@ extension PatronArchiver {
 
             // 2. Load page
             job.status = .loading
-            job.progress.completedUnitCount = 10
             try Task.checkCancellation()
             let tracker = RedirectTracker()
             Self.logger.debug("Loading page...")
@@ -237,15 +242,15 @@ extension PatronArchiver {
 
             // 4. Load lazy content
             try Task.checkCancellation()
-            job.progress.completedUnitCount = 15
+            progress.preparation.completedUnitCount += 1
             Self.logger.debug("Loading lazy content...")
             try await webView.loadLazyContent(scrollDelay: AppSettings.scrollDelay.wrappedValue)
-            job.progress.completedUnitCount = 20
+            progress.preparation.completedUnitCount += 1
             try await provider.preloadContent(in: webView)
-            job.progress.completedUnitCount = 25
+            progress.preparation.completedUnitCount += 1
             try await webView.loadLazyContent(scrollDelay: AppSettings.scrollDelay.wrappedValue)
             Self.logger.debug("Lazy content loaded")
-            job.progress.completedUnitCount = 30
+            progress.preparation.completedUnitCount += 1
 
             // 5. Extract metadata
             try Task.checkCancellation()
@@ -274,7 +279,7 @@ extension PatronArchiver {
             // 6. Extract media URLs
             let mediaItems = try await provider.extractMediaURLs(in: webView)
             job.mediaItems = mediaItems
-            job.progress.completedUnitCount = 40
+            progress.preparation.completedUnitCount += 1
             Self.logger.info("Found \(mediaItems.count) media items")
 
             // 7. Page dump + media download (concurrent)
@@ -308,10 +313,13 @@ extension PatronArchiver {
                     ? ""
                     : Self.pageFileStem(for: pageTitle, fitting: steps.map(\.1))
 
+                let stages = progress.allocate(
+                    pageFormatCount: steps.count,
+                    mediaCount: mediaItems.count
+                )
+
                 // Start media download in background (no WebView dependency)
                 Self.logger.debug("Starting media download concurrently...")
-                let totalMedia = mediaItems.count
-                let completedMediaCount = Atomic(0)
                 let mediaDownloader = MediaDownloader(
                     websiteDataStore: Self.websiteDataStore,
                     urlSession: Self.urlSession
@@ -319,35 +327,34 @@ extension PatronArchiver {
                 async let mediaResult = mediaDownloader.download(
                     mediaItems,
                     to: tempDir,
-                    onFileDownloaded: { @Sendable in
-                        let count = completedMediaCount.add(1, ordering: .relaxed).newValue
-                        Task { @MainActor in
-                            guard job.progress.completedUnitCount >= 60 else { return }
-                            job.progress.completedUnitCount = 60 + Int64(count * 20 / max(totalMedia, 1))
-                        }
-                    }
+                    progress: stages.media
                 )
 
                 // Page formats on WebView (sequential, needs WebView). Each is written straight
                 // into staging as it is produced rather than carried around as `Data`: an archive
                 // of an image-heavy post is the largest thing this job would otherwise hold.
                 var pageFiles: [URL] = []
-                for (index, (_, fileExtension, write)) in steps.enumerated() {
+                for (_, fileExtension, write) in steps {
                     let url = tempDir.appending(component: "\(fileStem).\(fileExtension)")
                     Self.logger.debug("Generating \(fileExtension, privacy: .public)...")
                     try await write(url)
                     Self.logger.debug("\(fileExtension, privacy: .public) written")
                     pageFiles.append(url)
-                    // The formats share the 40–60 span, however many of them there are.
-                    job.progress.completedUnitCount = 40 + Int64((index + 1) * 20 / steps.count)
+                    stages.pageFormats.completedUnitCount += 1
                 }
-                let alreadyCompleted = completedMediaCount.load(ordering: .relaxed)
-                job.progress.completedUnitCount = 60 + Int64(alreadyCompleted * 20 / max(totalMedia, 1))
+
+                // Whatever media is still in flight is all the job is waiting on now. The page
+                // writers run to completion regardless of a cancel, so one may have landed during
+                // them — and by then `cancelJob` has failed the job, or a retry has restarted it,
+                // neither of which this is allowed to relabel.
+                if !mediaItems.isEmpty {
+                    try Task.checkCancellation()
+                    job.status = .downloading
+                }
 
                 // Await media download completion
                 let downloadedMedia = try await mediaResult
                 Self.logger.info("Downloaded \(downloadedMedia.count) media files")
-                job.progress.completedUnitCount = 80
 
                 // 9. Attribute the staged files and resolve where they belong
                 try Task.checkCancellation()
@@ -363,7 +370,7 @@ extension PatronArchiver {
                     includesFinderTags: AppSettings.includesFinderTags.wrappedValue,
                     includesContentDates: AppSettings.includesContentDates.wrappedValue
                 )
-                job.progress.completedUnitCount = 90
+                stages.saving.completedUnitCount += 1
 
                 // 10. Commit — the move is also the check for whether the destination is free
                 try Task.checkCancellation()
@@ -393,7 +400,9 @@ extension PatronArchiver {
                         Self.logger.info("Job committed after being cancelled; leaving its state alone")
                         return
                     }
-                    job.progress.completedUnitCount = 100
+                    // Set outright: the tree already stands at the end, but its last update may not
+                    // have hopped over before `progress` stops publishing.
+                    job.fractionCompleted = 1
                     job.status = .completed
                     Self.logger.info("Job completed successfully")
                 }
@@ -470,7 +479,7 @@ extension PatronArchiver {
                     Self.logger.info("Overwrite committed after being cancelled; leaving its state alone")
                     return
                 }
-                job.progress.completedUnitCount = 100
+                job.fractionCompleted = 1
                 job.status = .completed
                 Self.logger.info("Overwrite confirmed and save committed")
             } catch {

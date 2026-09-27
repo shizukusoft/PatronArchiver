@@ -10,7 +10,7 @@ extension PatronArchiver {
     }
 
     private static func makeDemoJobs() -> [ArchiveJob] {
-        let demoEntries: [(url: String, title: String, author: String, siteIdentifier: String, status: JobStatus, completedUnits: Int64)] = [
+        let demoEntries: [(url: String, title: String, author: String, siteIdentifier: String, status: JobStatus, fractionCompleted: Double, media: (downloaded: Int, total: Int))] = [
             // Oldest first, matching enqueue order. The job list displays these newest first, and the
             // statuses follow the FIFO queue: finished jobs, then the one running, then queued ones.
             (
@@ -19,7 +19,7 @@ extension PatronArchiver {
                 "ArtStudio",
                 "Patreon",
                 .completed,
-                100
+                1, (8, 8)
             ),
             (
                 "https://artstudio.fanbox.cc/posts/67890",
@@ -27,7 +27,7 @@ extension PatronArchiver {
                 "DrawingMaster",
                 "pixivFANBOX",
                 .completed,
-                100
+                1, (5, 5)
             ),
             (
                 "https://soundworks.fanbox.cc/posts/33333",
@@ -35,7 +35,7 @@ extension PatronArchiver {
                 "SoundWorks",
                 "pixivFANBOX",
                 .failed(DemoError.networkTimeout),
-                40
+                0.4, (0, 3)
             ),
             (
                 "https://www.subscribestar.com/posts/animation-process-11111",
@@ -43,7 +43,7 @@ extension PatronArchiver {
                 "MotionLab",
                 "SubscribeStar",
                 .downloading,
-                65
+                0.65, (7, 12)
             ),
             (
                 "https://www.patreon.com/posts/wallpaper-vol12-22222",
@@ -51,7 +51,7 @@ extension PatronArchiver {
                 "PixelCraft",
                 "Patreon",
                 .queued,
-                0
+                0, (0, 0)
             ),
         ]
 
@@ -60,7 +60,17 @@ extension PatronArchiver {
             let provider = PatronServiceProviders.provider(for: url)
             let job = ArchiveJob(inputURL: url, provider: provider)
             job.status = entry.status
-            job.progress.completedUnitCount = entry.completedUnits
+            job.fractionCompleted = entry.fractionCompleted
+            job.mediaItems = (0..<entry.media.total).map { index in
+                MediaItem(
+                    url: url.appending(component: "\(index + 1).png"),
+                    type: .image,
+                    filename: nil,
+                    downloadAttribute: nil,
+                    referrerURL: nil
+                )
+            }
+            job.downloadedMediaCount = entry.media.downloaded
             job.metadata = PostMetadata(
                 siteIdentifier: entry.siteIdentifier,
                 postID: url.lastPathComponent,
