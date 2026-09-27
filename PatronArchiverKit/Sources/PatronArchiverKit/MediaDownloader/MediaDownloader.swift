@@ -47,6 +47,14 @@ struct MediaDownloader: Sendable {
                         delegate: redirectCollector
                     )
 
+                    // A 404 or 500 arrives as a normal download, error page and all. Only the
+                    // move below ever takes the temporary file off the session's hands, so a
+                    // refused one is removed here rather than left behind.
+                    if let error = HTTPStatusError(rejecting: response) {
+                        try? FileManager.default.removeItem(at: tempURL)
+                        throw error
+                    }
+
                     let destinationURL = try Self.resolveDestinationURL(
                         for: item,
                         in: directory,

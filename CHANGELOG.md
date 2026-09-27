@@ -29,6 +29,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - The URL field in the iPhone and iPad bottom toolbar spans the full width again on iOS 27 instead of shrinking to its text
 - Posts with very long titles failed to save, discarding their downloaded media, because the file extension pushed the page file's name past the file system's limit
+- A media file the server refused, with a 404 or 500 for instance, was saved with the error page as its contents and the job reported as completed; the job now fails and says why
+- A post whose page came back as a server error page was archived as-is; the job now fails instead
 
 ### Security
 

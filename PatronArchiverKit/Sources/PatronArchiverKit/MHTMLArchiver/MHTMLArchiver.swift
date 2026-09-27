@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import PropertyList
 import WebKit
 
@@ -11,6 +12,12 @@ import WebKit
 /// network requests and falling back to URLSession for missing resources.
 @MainActor
 struct MHTMLArchiver {
+    // Read from the `@concurrent` download helpers too, hence not tied to the main actor.
+    nonisolated private static let logger = Logger(
+        subsystem: Logger.moduleSubsystem,
+        category: "MHTMLArchiver"
+    )
+
     private let webView: WKWebView
     private let urlSession: URLSession
 
@@ -345,10 +352,24 @@ extension MHTMLArchiver {
                 group.addTask {
                     do {
                         let (data, response) = try await urlSession.data(for: request)
+                        // A refused resource is left out, the same as one that failed to
+                        // transfer. Embedding the error page in its place would only put a
+                        // broken image or stylesheet into the archive, and failing the whole
+                        // archive over it would be out of step with the page, which has already
+                        // rendered without it — these are the resources WebKit did not have.
+                        if let error = HTTPStatusError(rejecting: response) {
+                            Self.logger.notice(
+                                "Leaving out a refused resource: \(url, privacy: .private) (\(error.status.code, privacy: .public))"
+                            )
+                            return nil
+                        }
                         let contentType = (response as? HTTPURLResponse)?
                             .value(forHTTPHeaderField: "Content-Type") ?? "application/octet-stream"
                         return Resource(url: url, contentType: contentType, data: data)
                     } catch {
+                        Self.logger.notice(
+                            "Leaving out a resource that failed to load: \(url, privacy: .private) — \(error.localizedDescription, privacy: .public)"
+                        )
                         return nil
                     }
                 }
@@ -400,12 +421,22 @@ extension MHTMLArchiver {
                         guard let request = requests[iframeURL] else { return nil }
                         do {
                             let (data, response) = try await urlSession.data(for: request)
+                            // Left out on refusal, for the same reason as any other resource.
+                            if let error = HTTPStatusError(rejecting: response) {
+                                Self.logger.notice(
+                                    "Leaving out a refused iframe: \(url, privacy: .private) (\(error.status.code, privacy: .public))"
+                                )
+                                return nil
+                            }
                             let contentType = (response as? HTTPURLResponse)?
                                 .value(forHTTPHeaderField: "Content-Type") ?? "text/html"
                             return Resource(
                                 url: url, contentType: contentType, data: data
                             )
                         } catch {
+                            Self.logger.notice(
+                                "Leaving out an iframe that failed to load: \(url, privacy: .private) — \(error.localizedDescription, privacy: .public)"
+                            )
                             return nil
                         }
                     }

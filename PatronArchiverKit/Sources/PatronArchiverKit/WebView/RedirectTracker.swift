@@ -10,8 +10,17 @@ final class RedirectTracker: NSObject, WKNavigationDelegate {
     /// installed still resolves the load rather than leaving it suspended for good.
     private var isCancelled = false
 
+    /// The main frame's status, when the server answered with something other than success.
+    ///
+    /// WebKit renders a 404 or 500 page like any other and reports the navigation as finished, so
+    /// the load only fails on it once `didFinish` arrives. The page is left to render rather than
+    /// cancelled: what the server sent back — a login wall, a bot challenge — is the best
+    /// explanation of the failure the user is going to get.
+    private var httpError: HTTPStatusError?
+
     func load(_ url: URL, in webView: WKWebView) async throws -> [URL] {
         redirectChain = [url]
+        httpError = nil
         self.webView = webView
         webView.navigationDelegate = self
 
@@ -83,7 +92,21 @@ final class RedirectTracker: NSObject, WKNavigationDelegate {
         return .allow
     }
 
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationResponse: WKNavigationResponse
+    ) async -> WKNavigationResponsePolicy {
+        if navigationResponse.isForMainFrame {
+            httpError = HTTPStatusError(rejecting: navigationResponse.response)
+        }
+        return .allow
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if let httpError {
+            finish(throwing: httpError)
+            return
+        }
         if let finalURL = webView.url, redirectChain.last != finalURL {
             redirectChain.append(finalURL)
         }

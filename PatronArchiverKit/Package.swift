@@ -24,6 +24,7 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-http-structured-headers.git", from: "1.6.0"),
+        .package(url: "https://github.com/apple/swift-http-types.git", from: "1.8.0"),
         // Only the `UserDefaults` Codable subscript (UserDefaultsKitCore) is used here; the SwiftUI
         // and Combine traits are the app target's concern, so they are disabled on this edge. In an
         // app build the trait union re-enables them (SE-0450), so this only keeps the Kit's own
@@ -46,6 +47,7 @@ let package = Package(
             name: "PatronArchiverKit",
             dependencies: [
                 .product(name: "RawStructuredFieldValues", package: "swift-http-structured-headers"),
+                .product(name: "HTTPTypes", package: "swift-http-types"),
                 .product(name: "UserDefaultsKit", package: "swift-user-defaults-kit"),
                 .product(name: "PropertyList", package: "swift-property-list"),
             ],
