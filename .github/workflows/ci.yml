@@ -75,8 +75,7 @@ jobs:
   test:
     name: Test (${{ matrix.destination-name }})
     needs: build
-    runs-on: ${{ matrix.runs-on || 'xcode-27' }}
-    continue-on-error: ${{ matrix.continue-on-error || false }}
+    runs-on: xcode-27
     strategy:
       fail-fast: false
       matrix:
@@ -85,101 +84,74 @@ jobs:
           - platform: macOS
             destination-name: macOS 27 - Mac
             test-destination: 'platform=macOS'
-            runs-on: xcode-27
-          # macos-26 has no Xcode 27, so its entry runs the 27-built products
-          # on the newest Xcode it carries.
-          - platform: macOS
-            destination-name: macOS 26 - Mac
-            test-destination: 'platform=macOS'
-            runs-on: macos-26
-            xcode-version: '26.6'
-            continue-on-error: true
-          # iOS 27 and 26 run on xcode-27 so build and test share the same
-          # Xcode toolchain. The image ships only the iOS 27.0 runtime, so
-          # the iOS 26 entries install theirs on demand.
+          # The image ships only the iOS 27.0 runtime, so the iOS 26 entries
+          # install theirs on demand.
           - platform: iOS
             destination-name: iOS 27 - iPhone 18 Pro Max
             device-name: iPhone 18 Pro Max
             os-version: '27.0'
-            runs-on: xcode-27
           - platform: iOS
             destination-name: iOS 27 - iPhone 17
             device-name: iPhone 17
             os-version: '27.0'
-            runs-on: xcode-27
           - platform: iOS
             destination-name: iOS 27 - iPhone Air
             device-name: iPhone Air
             os-version: '27.0'
-            runs-on: xcode-27
           - platform: iOS
             destination-name: iOS 27 - iPad Pro 13-inch (M5)
             device-name: iPad Pro 13-inch (M5)
             os-version: '27.0'
-            runs-on: xcode-27
           - platform: iOS
             destination-name: iOS 27 - iPad Air 11-inch (M4)
             device-name: iPad Air 11-inch (M4)
             os-version: '27.0'
-            runs-on: xcode-27
           - platform: iOS
             destination-name: iOS 27 - iPad (A16)
             device-name: iPad (A16)
             os-version: '27.0'
-            runs-on: xcode-27
           - platform: iOS
             destination-name: iOS 27 - iPad mini (A17 Pro)
             device-name: iPad mini (A17 Pro)
             os-version: '27.0'
-            runs-on: xcode-27
           - platform: iOS
             destination-name: iOS 26 - iPhone 17 Pro Max
             device-name: iPhone 17 Pro Max
             os-version: '26.2'
-            runs-on: xcode-27
             install-runtime: true
           - platform: iOS
             destination-name: iOS 26 - iPhone 17
             device-name: iPhone 17
             os-version: '26.2'
-            runs-on: xcode-27
             install-runtime: true
           - platform: iOS
             destination-name: iOS 26 - iPhone Air
             device-name: iPhone Air
             os-version: '26.2'
-            runs-on: xcode-27
             install-runtime: true
           - platform: iOS
             destination-name: iOS 26 - iPad Pro 13-inch (M5)
             device-name: iPad Pro 13-inch (M5)
             os-version: '26.2'
-            runs-on: xcode-27
             install-runtime: true
           - platform: iOS
             destination-name: iOS 26 - iPad Air 11-inch (M3)
             device-name: iPad Air 11-inch (M3)
             os-version: '26.2'
-            runs-on: xcode-27
             install-runtime: true
           - platform: iOS
             destination-name: iOS 26 - iPad (A16)
             device-name: iPad (A16)
             os-version: '26.2'
-            runs-on: xcode-27
             install-runtime: true
           - platform: iOS
             destination-name: iOS 26 - iPad mini (A17 Pro)
             device-name: iPad mini (A17 Pro)
             os-version: '26.2'
-            runs-on: xcode-27
             install-runtime: true
     steps:
-      # macos-26 tops out at Xcode 26.6, so its legacy entry runs the Xcode
-      # 27-built products on an older toolchain — the cross-Xcode
-      # swift-testing split is back for it, and it stays continue-on-error.
-      - name: Select Xcode
-        run: sudo xcodes select ${{ matrix.xcode-version || '27.0' }}
+      - name: Select Xcode 27
+        run: sudo xcodes select 27.0
 
       - name: Download Test Products
         uses: actions/download-artifact@v7
