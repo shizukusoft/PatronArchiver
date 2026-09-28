@@ -289,7 +289,7 @@ extension MHTMLArchiver {
     /// SE-0461 a `nonisolated` function would inherit that actor and do it on the main thread.
     @concurrent
     private static func parseWebArchiveResources(_ data: Data) async -> [Resource] {
-        guard let archive = try? PropertyListValue(data: data) else {
+        guard let archive = try? PropertyListSerialization.propertyListValue(from: data) else {
             return []
         }
 

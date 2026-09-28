@@ -17,7 +17,7 @@
       "kind": "remote",
       "repository": "https://github.com/sinoru/swift-user-defaults-kit",
       "version": {
-        "up-to-next-minor-version": "0.0.3",
+        "up-to-next-minor-version": "0.0.4",
       },
       "traits": [
         "SwiftUI",

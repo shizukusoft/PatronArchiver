@@ -1,5 +1,5 @@
 {
-  "originHash" : "a76f88f016de8568955ce312f5f1b46fda3ada75e0b02ef00dd276f73b350fc1",
+  "originHash" : "a144a7a5e1b1bcaef8a5d87dbddd2c14cb21d9ddd2ad872e925d15dca404e03d",
   "pins" : [
     {
       "identity" : "swift-http-structured-headers",
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sinoru/swift-property-list.git",
       "state" : {
-        "revision" : "332bf0076cb35054bdf9e468aa765400d3e5ef2f",
-        "version" : "0.0.1"
+        "revision" : "685339c0686ec6dc9bdac6f4939ad74d15e7acf3",
+        "version" : "0.1.0"
       }
     },
     {
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sinoru/swift-synchronization-kit.git",
       "state" : {
-        "revision" : "73bb4a5a78e8eeecd765fd32a7acdc1f0e7b47fb",
-        "version" : "1.0.1"
+        "revision" : "c9ef5d6f7c9f2aeaec8b5558b925ebc0aef8ff10",
+        "version" : "1.1.2"
       }
     },
     {
@@ -42,8 +42,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sinoru/swift-user-defaults-kit",
       "state" : {
-        "revision" : "249df47893fa7d553139d6130c469611aefbee8a",
-        "version" : "0.0.3"
+        "revision" : "85c309579c81ff28fb73fd201c1df5beb6ee7206",
+        "version" : "0.0.4"
       }
     }
   ],
