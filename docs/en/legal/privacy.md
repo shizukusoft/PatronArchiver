@@ -20,7 +20,7 @@ PatronArchiver ("the App") is a personal archiving tool that saves posts from cr
 
 ## Local Storage
 
-All archived content — including PDFs, MHTML files, and media — is stored exclusively on your device. The App does not upload your data to any server.
+All archived content — including web archives, PDFs, and media — is stored exclusively on your device. The App does not upload your data to any server.
 
 ## Third-Party Websites
 

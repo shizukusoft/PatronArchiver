@@ -6,7 +6,9 @@ struct JobListView: View {
 
     var body: some View {
         List {
-            ForEach(archiver.jobs) { job in
+            // Newest first for display only: `jobs` stays in FIFO order because the queue
+            // picks the next job from the front of the array.
+            ForEach(archiver.jobs.reversed()) { job in
                 JobRowView(job: job, archiver: archiver)
             }
         }

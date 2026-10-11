@@ -121,11 +121,31 @@ extension PatronArchiver {
     }
 
     /// The name every page-level file in a save shares, minus the extension.
-    nonisolated static func pageFileStem(for pageTitle: String) throws -> String {
-        guard let stem = pageTitle.sanitizedFileName() else {
+    ///
+    /// Cut so that the longest of `pathExtensions` still fits the file system's 255-byte limit
+    /// once appended. Cutting per extension instead would leave one post's files with different
+    /// stems, and cutting the bare title — as this once did — let a long title overflow by exactly
+    /// the extension's length.
+    ///
+    /// The title is sanitized on its own first, so it is trimmed the same way whatever the
+    /// extensions are, and then once more with the extension attached, which is the whole name
+    /// `sanitizedFileName()` measures and the part of it that keeps the extension intact.
+    nonisolated static func pageFileStem(
+        for pageTitle: String,
+        fitting pathExtensions: [String]
+    ) throws -> String {
+        guard let title = pageTitle.sanitizedFileName() else {
             throw FileNameError.empty
         }
-        return stem
+        guard let longest = pathExtensions.max(by: { $0.utf8.count < $1.utf8.count }) else {
+            return title
+        }
+
+        let suffix = "." + longest
+        guard let name = (title + suffix).sanitizedFileName(), name.hasSuffix(suffix) else {
+            throw FileNameError.empty
+        }
+        return String(name.dropLast(suffix.count))
     }
 
     // MARK: Phase 1: Attribute the staged files and work out where they belong

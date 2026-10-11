@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 import PropertyList
 import WebKit
 
@@ -11,6 +12,12 @@ import WebKit
 /// network requests and falling back to URLSession for missing resources.
 @MainActor
 struct MHTMLArchiver {
+    // Read from the `@concurrent` download helpers too, hence not tied to the main actor.
+    nonisolated private static let logger = Logger(
+        subsystem: Logger.moduleSubsystem,
+        category: "MHTMLArchiver"
+    )
+
     private let webView: WKWebView
     private let urlSession: URLSession
 
@@ -34,12 +41,13 @@ struct MHTMLArchiver {
             throw MHTMLError.noPageURL
         }
 
-        // 1. Snapshot loaded resources via webarchive (browser cache, no network)
+        // 1. Write runtime-only styles back into the DOM so the outerHTML capture below sees them
+        try await webView.prepareDOMForSerialization()
+
+        // 2. Snapshot loaded resources via webarchive (browser cache, no network)
         let cache: [String: Resource]
         do {
-            let webArchiveData: Data = try await withCheckedThrowingContinuation { continuation in
-                webView.createWebArchiveData { continuation.resume(with: $0) }
-            }
+            let webArchiveData = try await webView.webArchiveData()
             let cachedResources = await Self.parseWebArchiveResources(webArchiveData)
             cache = Dictionary(
                 cachedResources.map { ($0.url.absoluteString, $0) },
@@ -49,11 +57,10 @@ struct MHTMLArchiver {
             cache = [:]
         }
 
-        // 2. Run JS to modify DOM (mutable stylesheets, adopted stylesheets, etc.)
-        //    and capture outerHTML + resource URLs + iframe info
+        // 3. Capture outerHTML + resource URLs + iframe info
         let collectResult = try await collectPageResources()
 
-        // 3. Resolve resources: webarchive cache first, URLSession fallback
+        // 4. Resolve resources: webarchive cache first, URLSession fallback
         let dataStore = webView.configuration.websiteDataStore
 
         let requestedURLs = collectResult.resourceURLs.compactMap { URL(string: $0) }
@@ -73,7 +80,7 @@ struct MHTMLArchiver {
         )
         resources.append(contentsOf: downloaded)
 
-        // 4. CSS 2nd pass: extract sub-resource URLs, resolve from cache or download
+        // 5. CSS 2nd pass: extract sub-resource URLs, resolve from cache or download
         let resolvedURLs = Set(resources.map(\.url.absoluteString))
         let cssSubresourceURLs = await Self.extractCSSSubresourceURLs(from: resources)
             .filter { !resolvedURLs.contains($0.absoluteString) }
@@ -91,14 +98,14 @@ struct MHTMLArchiver {
             urls: missingCSSURLs, dataStore: dataStore, urlSession: urlSession
         ))
 
-        // 5. Iframe sub-documents
+        // 6. Iframe sub-documents
         let iframeResources = await Self.collectIframeResources(
             iframes: collectResult.iframes, dataStore: dataStore, urlSession: urlSession
         )
 
         let allResources = resources + cssResources + iframeResources
 
-        // 6. Assemble MHTML
+        // 7. Assemble MHTML
         try await Self.writeMHTML(
             pageURL: pageURL,
             title: collectResult.title,
@@ -213,44 +220,6 @@ extension MHTMLArchiver {
                 }
             });
 
-            // --- Serialize mutable stylesheets (styled-components, etc.) ---
-
-            document.querySelectorAll('style').forEach(style => {
-                if (!style.sheet) return;
-                try {
-                    const cssomText = Array.from(style.sheet.cssRules).map(r => r.cssText).join('\\n');
-                    const sourceText = style.textContent.trim();
-                    // Replace if CSSOM differs from source (mutable stylesheet)
-                    if (cssomText && cssomText !== sourceText) {
-                        style.textContent = cssomText;
-                    }
-                } catch {}
-            });
-
-            // --- Adopted stylesheets ---
-
-            if (document.adoptedStyleSheets && document.adoptedStyleSheets.length > 0) {
-                for (const sheet of document.adoptedStyleSheets) {
-                    try {
-                        const cssText = Array.from(sheet.cssRules).map(r => r.cssText).join('\\n');
-                        if (cssText) {
-                            const styleEl = document.createElement('style');
-                            styleEl.setAttribute('data-adopted-stylesheet', '');
-                            styleEl.textContent = cssText;
-                            document.head.appendChild(styleEl);
-                        }
-                    } catch {}
-                }
-            }
-
-            // --- Escape </style> inside <style> tags to prevent MHTML parser breakage ---
-
-            document.querySelectorAll('style').forEach(style => {
-                if (style.textContent.includes('</style')) {
-                    style.textContent = style.textContent.replace(/<\\/style/gi, '\\\\3C /style');
-                }
-            });
-
             // --- Collect iframe sub-documents ---
 
             const iframes = [];
@@ -320,7 +289,7 @@ extension MHTMLArchiver {
     /// SE-0461 a `nonisolated` function would inherit that actor and do it on the main thread.
     @concurrent
     private static func parseWebArchiveResources(_ data: Data) async -> [Resource] {
-        guard let archive = try? PropertyListValue(data: data) else {
+        guard let archive = try? PropertyListSerialization.propertyListValue(from: data) else {
             return []
         }
 
@@ -383,10 +352,24 @@ extension MHTMLArchiver {
                 group.addTask {
                     do {
                         let (data, response) = try await urlSession.data(for: request)
+                        // A refused resource is left out, the same as one that failed to
+                        // transfer. Embedding the error page in its place would only put a
+                        // broken image or stylesheet into the archive, and failing the whole
+                        // archive over it would be out of step with the page, which has already
+                        // rendered without it — these are the resources WebKit did not have.
+                        if let error = HTTPStatusError(rejecting: response) {
+                            Self.logger.notice(
+                                "Leaving out a refused resource: \(url, privacy: .private) (\(error.status.code, privacy: .public))"
+                            )
+                            return nil
+                        }
                         let contentType = (response as? HTTPURLResponse)?
                             .value(forHTTPHeaderField: "Content-Type") ?? "application/octet-stream"
                         return Resource(url: url, contentType: contentType, data: data)
                     } catch {
+                        Self.logger.notice(
+                            "Leaving out a resource that failed to load: \(url, privacy: .private) — \(error.localizedDescription, privacy: .public)"
+                        )
                         return nil
                     }
                 }
@@ -438,12 +421,22 @@ extension MHTMLArchiver {
                         guard let request = requests[iframeURL] else { return nil }
                         do {
                             let (data, response) = try await urlSession.data(for: request)
+                            // Left out on refusal, for the same reason as any other resource.
+                            if let error = HTTPStatusError(rejecting: response) {
+                                Self.logger.notice(
+                                    "Leaving out a refused iframe: \(url, privacy: .private) (\(error.status.code, privacy: .public))"
+                                )
+                                return nil
+                            }
                             let contentType = (response as? HTTPURLResponse)?
                                 .value(forHTTPHeaderField: "Content-Type") ?? "text/html"
                             return Resource(
                                 url: url, contentType: contentType, data: data
                             )
                         } catch {
+                            Self.logger.notice(
+                                "Leaving out an iframe that failed to load: \(url, privacy: .private) — \(error.localizedDescription, privacy: .public)"
+                            )
                             return nil
                         }
                     }

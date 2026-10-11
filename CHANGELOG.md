@@ -7,6 +7,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-10-11
+
+### Added
+
+- Posts can now be saved as WebArchive, Apple's native web archive format, alongside or instead of MHTML
+- Settings now has a Formats section to choose any combination of WebArchive, MHTML, and PDF, including none for media-only archives
+- While media downloads, the job row shows how many files are done, and its progress bar advances with each file's bytes as they arrive
+
+### Changed
+
+- Posts are now saved as WebArchive and PDF by default; MHTML, which every post used to get, is off unless turned on in Settings
+- Raised the minimum build requirement to Xcode 27 (Swift 6.4)
+- The job list now shows the newest job at the top, so a newly added job is visible right away
+- Raised the minimum OS to macOS 26 and iOS 26
+- On iPad and other wide windows, the URL field now sits at the top of the window in one capsule with the Add button, as it does on Mac
+- The main window no longer shows a title, leaving the toolbar to the URL field and its controls
+
+### Removed
+
+- Intel Mac support; the app now ships for Apple silicon only
+
+### Fixed
+
+- The URL field in the iPhone and iPad bottom toolbar spans the full width again on iOS 27 instead of shrinking to its text
+- Posts with very long titles failed to save, discarding their downloaded media, because the file extension pushed the page file's name past the file system's limit
+- A media file the server refused, with a 404 or 500 for instance, was saved with the error page as its contents and the job reported as completed; the job now fails and says why
+- A post whose page came back as a server error page was archived as-is; the job now fails instead
+- A job's progress bar stood still while it saved the page and downloaded media, then jumped ahead, and never showed the Downloading status
+- Patreon post links whose slug ends in a number followed by a hyphen, such as `…-1-169339310`, were not recognized because the number inside the slug was taken as the post ID
+
+### Security
+
+- Enhanced Security now runs at version 2, adding guard objects and hardware-checked pointer arithmetic on the arm64e.x1 slice
+
 ## [1.2.0] - 2026-09-13
 
 ### Added
@@ -210,7 +244,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Adopted Swift 6.0 strict concurrency with MainActor isolation
 - Replaced glob-based URL matching with Swift Regex
 
-[Unreleased]: https://github.com/shizukusoft/PatronArchiver/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/shizukusoft/PatronArchiver/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/shizukusoft/PatronArchiver/compare/v1.2.0...v2.0.0
 [1.2.0]: https://github.com/shizukusoft/PatronArchiver/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/shizukusoft/PatronArchiver/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/shizukusoft/PatronArchiver/compare/v1.1...v1.1.1

@@ -13,12 +13,12 @@ struct MainView: View {
     #if os(iOS)
     @State private var showSettings = false
     @Environment(\.openURL) private var openURL
-    #else
-    /// Width for the toolbar URL field, derived from the window width so the
-    /// field grows and shrinks as the window is resized. SwiftUI's toolbar does
-    /// not stretch a principal item to fill, so we size it from measured geometry.
-    @State private var addressFieldWidth: CGFloat = 280
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    /// Width of the add button, measured so the URL field can fill the rest of
+    /// the bottom bar.
+    @State private var addButtonWidth: CGFloat = 0
     #endif
+    @State private var windowWidth: CGFloat = 0
 
     /// Observed rather than read from ``AppSettings`` at the point of use: a static read registers
     /// no SwiftUI dependency, so a Render Width change in Settings would leave this window's web
@@ -37,8 +37,39 @@ struct MainView: View {
     @ViewBuilder
     private var urlTextField: some View {
         TextField("Enter post URL...", text: $urlText)
+            #if os(iOS)
+            .keyboardType(.URL)
+            .textInputAutocapitalization(.never)
+            #endif
             .accessibilityIdentifier("urlInput")
             .onSubmit { Task { await submitURL() } }
+    }
+
+    /// The URL field and add button as they sit in the center of the top
+    /// toolbar, in a regular-width window.
+    private var addressBar: some View {
+        HStack(spacing: 8) {
+            urlTextField
+                #if os(macOS)
+                .textFieldStyle(.plain)
+                #endif
+                .frame(width: addressFieldWidth)
+            // The button sits flush against the capsule's end, so its glyph
+            // centers in the rounded end rather than floating between the
+            // text and the edge.
+            addButton
+                #if os(iOS)
+                .frame(width: Self.controlSize, height: Self.controlSize)
+                #endif
+        }
+        .padding(.leading)
+        #if os(iOS)
+        // The top bar gives its principal item no background of its own, so
+        // draw the capsule the bottom bar puts around the same controls in a
+        // compact window.
+        .frame(minHeight: Self.controlSize)
+        .glassEffect(.regular.interactive())
+        #endif
     }
 
     @ViewBuilder
@@ -69,25 +100,58 @@ struct MainView: View {
         .accessibilityIdentifier("openFolderButton")
     }
 
+    #if os(iOS)
+    /// The HIG's default control size on iOS, which the bars' own buttons also
+    /// meet: the address bar capsule's height, and the square the add button
+    /// fills at its end.
+    private static let controlSize: CGFloat = 44
+    /// Distance from the window edge to the bottom bar's content: the bar's
+    /// margin outside its capsule plus the capsule's padding. Measured on
+    /// iOS 26.5 and 27.0, where the system lays these out identically.
+    private static let bottomBarContentInset: CGFloat = 34
+    /// Spacing the bottom bar puts between the URL field and the add button.
+    private static let bottomBarItemSpacing: CGFloat = 14
+    /// Extra inset for the field's leading edge. The bottom bar keeps its
+    /// items only 5pt from its capsule's ends, so this brings the text to the
+    /// 16pt the top bar's address bar pads by; the add button needs none, as
+    /// the room its hit area leaves around the glyph already makes up the
+    /// rest. The items stay separate bar items rather than one padded view,
+    /// because a text field nested inside a bottom bar item doesn't take focus
+    /// on tap.
+    private static let bottomBarLeadingPadding: CGFloat = 11
+    #endif
+
+    /// Width for the toolbar URL field, derived from the window width so the
+    /// field grows and shrinks as the window is resized. SwiftUI's toolbar does
+    /// not stretch an item to fill (the iOS 27 bottom bar sizes it to its text),
+    /// so we size it from measured geometry.
+    private var addressFieldWidth: CGFloat {
+        #if os(iOS)
+        if horizontalSizeClass == .compact {
+            // Fill what the add button leaves, so the bottom bar spans the
+            // width as it did on iOS 26.
+            return max(windowWidth - 2 * Self.bottomBarContentInset - Self.bottomBarItemSpacing - addButtonWidth, 0)
+        }
+        #endif
+        // Size the field to a fraction of the window so the side margins
+        // scale with it; clamp to keep the add button visible at the minimum
+        // width and avoid an over-wide field.
+        return min(max(windowWidth * 0.4, 220), 700)
+    }
+
     var body: some View {
         NavigationStack {
             JobListView(archiver: archiver)
                 .background {
                     archiveWebViewArea
                 }
-                #if os(macOS)
                 .onGeometryChange(for: CGFloat.self) { proxy in
                     proxy.size.width
-                } action: { windowWidth in
-                    // Size the field to a fraction of the window so the side
-                    // margins scale with it; clamp to keep the add button visible
-                    // at the minimum width and avoid an over-wide field.
-                    addressFieldWidth = min(max(windowWidth * 0.4, 220), 700)
+                } action: { width in
+                    windowWidth = width
                 }
-                #endif
-                .navigationTitle("PatronArchiver")
                 #if os(iOS)
-                .navigationBarTitleDisplayMode(.large)
+                .navigationBarTitleDisplayMode(.inline)
                 #endif
                 .toolbar {
                     #if os(iOS)
@@ -99,29 +163,40 @@ struct MainView: View {
                         }
                         .accessibilityIdentifier("settingsButton")
                     }
-                    ToolbarItemGroup(placement: .bottomBar) {
-                        urlTextField
-                            .keyboardType(.URL)
-                            .textInputAutocapitalization(.never)
-                        addButton
+                    // A compact window keeps the field within thumb reach at the
+                    // bottom; a regular one centers it at the top, as on macOS.
+                    if horizontalSizeClass == .compact {
+                        ToolbarItemGroup(placement: .bottomBar) {
+                            urlTextField
+                                .padding(.leading, Self.bottomBarLeadingPadding)
+                                .frame(width: addressFieldWidth)
+                            addButton
+                                .onGeometryChange(for: CGFloat.self) { proxy in
+                                    proxy.size.width
+                                } action: { width in
+                                    addButtonWidth = width
+                                }
+                        }
+                    } else {
+                        ToolbarItem(placement: .principal) {
+                            addressBar
+                        }
                     }
                     ToolbarItem(placement: .topBarTrailing) {
                         openFolderButton
                     }
                     #else
                     ToolbarItem(placement: .principal) {
-                        HStack(spacing: 8) {
-                            urlTextField
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: addressFieldWidth)
-                            addButton
-                        }
+                        addressBar
                     }
                     ToolbarItem(placement: .primaryAction) {
                         openFolderButton
                     }
                     #endif
                 }
+                #if os(macOS)
+                .toolbar(removing: .title)
+                #endif
                 #if os(iOS)
                 .sheet(isPresented: $showSettings) {
                     NavigationStack {

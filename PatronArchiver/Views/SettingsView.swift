@@ -26,6 +26,9 @@ struct SettingsView: View {
     @UserDefaultStorage(AppSettings.includesContentDates.key)
     private var includesContentDates = AppSettings.includesContentDates.defaultValue
 
+    @UserDefaultStorage(AppSettings.archiveFormats.key)
+    private var archiveFormats = AppSettings.archiveFormats.defaultValue
+
     @State private var verificationWebViews: [String: WKWebView] = [:]
     @State private var isPickingFolder = false
     @State private var loginEntry: SiteEntry?
@@ -160,10 +163,18 @@ struct SettingsView: View {
                         .labelsHidden()
                         .frame(width: 80)
                         #if os(macOS)
-                        .textFieldStyle(.roundedBorder)
+                        .roundedTextFieldBorder()
                         #endif
                     Text("ms")
                 }
+            }
+
+            // Independent toggles rather than a picker: the formats do not conflict, and turning
+            // every one off is allowed — the post is then saved as its media files alone.
+            Section("Formats") {
+                Toggle("Web Archive", isOn: $archiveFormats.contains(.webArchive))
+                Toggle("MHTML", isOn: $archiveFormats.contains(.mhtml))
+                Toggle("PDF", isOn: $archiveFormats.contains(.pdf))
             }
 
             Section("Metadata") {
