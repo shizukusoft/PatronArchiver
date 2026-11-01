@@ -71,6 +71,13 @@ extension PatronArchiver {
                 )
             }
             job.downloadedMediaCount = entry.media.downloaded
+            if case .downloading = entry.status {
+                job.mediaTransferProgress = MediaTransferProgress(
+                    countOfBytesReceived: 182_300_000,
+                    countOfBytesExpectedToReceive: 312_600_000,
+                    throughput: 24_100_000
+                )
+            }
             job.metadata = PostMetadata(
                 siteIdentifier: entry.siteIdentifier,
                 postID: url.lastPathComponent,

@@ -31,10 +31,13 @@ struct MediaDownloader: Sendable {
     ///   - progress: A progress with one unit per item. Each transfer's own progress is attached
     ///     to it as a child, so it advances with the bytes received wherever the server declares
     ///     a length, and a whole unit at a time wherever it does not.
+    ///   - transfers: Where each transfer's task is registered, for totalling bytes across the
+    ///     batch.
     func download(
         _ items: [MediaItem],
         to directory: URL,
-        progress: Progress? = nil
+        progress: Progress? = nil,
+        transfers: MediaTransfers? = nil
     ) async throws -> [DownloadedMedia] {
         // Batch urlRequest creation to minimize main actor hops
         var requests: [URL: URLRequest] = [:]
@@ -48,7 +51,7 @@ struct MediaDownloader: Sendable {
             for (index, item) in items.enumerated() {
                 let request = requests[item.url]!
                 group.addTask {
-                    let observer = DownloadTaskObserver(progress: progress)
+                    let observer = DownloadTaskObserver(progress: progress, transfers: transfers)
                     let (tempURL, response) = try await urlSession.download(
                         for: request,
                         delegate: observer
@@ -159,10 +162,12 @@ struct MediaDownloader: Sendable {
 /// batch's.
 private final class DownloadTaskObserver: NSObject, URLSessionTaskDelegate, Sendable {
     private let progress: Progress?
+    private let transfers: MediaTransfers?
     private let urls = Mutex<[URL]>([])
 
-    init(progress: Progress?) {
+    init(progress: Progress?, transfers: MediaTransfers?) {
         self.progress = progress
+        self.transfers = transfers
     }
 
     var redirectedURLs: [URL] {
@@ -173,6 +178,7 @@ private final class DownloadTaskObserver: NSObject, URLSessionTaskDelegate, Send
     // progress can be reached.
     func urlSession(_ session: URLSession, didCreateTask task: URLSessionTask) {
         progress?.addChild(task.progress, withPendingUnitCount: 1)
+        transfers?.add(task)
     }
 
     // Workaround for a SILGen crash while emitting the ObjC thunk for an `@objc`-exposed

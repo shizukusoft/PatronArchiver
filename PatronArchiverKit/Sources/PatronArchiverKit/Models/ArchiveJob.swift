@@ -13,6 +13,9 @@ public final class ArchiveJob: Identifiable {
     public internal(set) var fractionCompleted: Double
     /// How many of ``mediaCount`` files have finished downloading.
     public internal(set) var downloadedMediaCount: Int
+    /// The bytes of the media downloads, sampled about once a second while they run. Absent until
+    /// the first sample, and after the run ends.
+    public internal(set) var mediaTransferProgress: MediaTransferProgress?
     /// The run whose progress the job shows. Anything else still reporting onto it — a cancelled run
     /// that has not finished unwinding — is ignored.
     @ObservationIgnored weak var currentProgress: JobProgress?
@@ -27,6 +30,7 @@ public final class ArchiveJob: Identifiable {
         self.mediaItems = []
         self.fractionCompleted = 0
         self.downloadedMediaCount = 0
+        self.mediaTransferProgress = nil
         self.pendingSave = nil
     }
 

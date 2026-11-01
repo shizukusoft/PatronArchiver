@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- While media downloads, the job row shows the bytes received, the total size, the transfer rate, and the time remaining, worded as Safari does under a download
+
 ## [2.0.0] - 2026-10-11
 
 ### Added

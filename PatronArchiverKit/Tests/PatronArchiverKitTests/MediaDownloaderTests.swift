@@ -149,6 +149,22 @@ struct MediaDownloaderTests {
         #expect(progress.fractionCompleted == 1)
     }
 
+    @Test func countsTheBytesOfEveryTransfer() async throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let items = [item("first.png"), item("second.png")]
+        let bodies = [Data(repeating: 0x01, count: 1_000), Data(repeating: 0x02, count: 2_500)]
+        for (item, body) in zip(items, bodies) {
+            StubURLProtocol.stub(item.url, statusCode: 200, body: body)
+        }
+        let transfers = MediaTransfers(count: items.count)
+
+        _ = try await downloader.download(items, to: directory, transfers: transfers)
+
+        // Real tasks, so this is what their byte counters say — not units of their progress.
+        #expect(transfers.countOfBytesReceived == 3_500)
+        #expect(transfers.countOfBytesExpectedToReceive == 3_500)
+    }
+
     @Test func reportsATransferPartway() async throws {
         defer { try? FileManager.default.removeItem(at: directory) }
         let item = item("large.mp4")

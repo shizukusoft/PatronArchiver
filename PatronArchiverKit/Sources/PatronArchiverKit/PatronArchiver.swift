@@ -147,6 +147,7 @@ extension PatronArchiver {
         job.status = .queued
         job.fractionCompleted = 0
         job.downloadedMediaCount = 0
+        job.mediaTransferProgress = nil
         job.metadata = nil
         job.mediaItems = []
         startJobIfPossible(job)
@@ -327,7 +328,8 @@ extension PatronArchiver {
                 async let mediaResult = mediaDownloader.download(
                     mediaItems,
                     to: tempDir,
-                    progress: stages.media
+                    progress: stages.media,
+                    transfers: stages.transfers
                 )
 
                 // Page formats on WebView (sequential, needs WebView). Each is written straight

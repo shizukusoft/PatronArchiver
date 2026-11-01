@@ -30,6 +30,10 @@ struct JobRowView: View {
                     }
                 } else if job.status.isInProgress {
                     ProgressView(value: job.fractionCompleted)
+                    if let transferProgressText {
+                        transferProgressText
+                            .font(.caption)
+                    }
                 }
             }
             Spacer()
@@ -125,6 +129,23 @@ struct JobRowView: View {
         case .dumping, .downloading:
             guard job.mediaCount > 0 else { return nil }
             return Text(verbatim: "\(job.downloadedMediaCount)/\(job.mediaCount)")
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        default:
+            return nil
+        }
+    }
+
+    /// The media bytes received so far, with the total, the rate, and the time left as each
+    /// becomes known. The total waits for every file's server to declare a length, so with many
+    /// files it tends to arrive late; the received bytes and the rate are there throughout.
+    private var transferProgressText: Text? {
+        switch job.status {
+        case .dumping, .downloading:
+            guard let progress = job.mediaTransferProgress, progress.countOfBytesReceived > 0 else {
+                return nil
+            }
+            return Text(verbatim: progress.localizedDescription)
                 .foregroundStyle(.secondary)
                 .monospacedDigit()
         default:

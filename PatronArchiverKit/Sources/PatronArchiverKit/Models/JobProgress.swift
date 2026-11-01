@@ -8,6 +8,9 @@ import Synchronization
 /// tree for a single run and republishes it onto the job, coarsely enough that a transfer's
 /// per-chunk updates do not each redraw the row.
 ///
+/// The media transfers' bytes are not part of the tree — a parent only takes a child's fraction
+/// — so they are totalled apart and sampled about once a second, which also puts a rate on them.
+///
 /// Only the job's ``ArchiveJob/currentProgress`` publishes. A run claims the job when it starts
 /// and gives it up at ``stop()``, and a cancel takes it away at once: a cancelled run can take a
 /// while to unwind, and a retry may already be reporting on the same job by then, so nothing the
@@ -22,6 +25,8 @@ final class JobProgress {
         let pageFormats: Progress
         /// One unit per media file, each advancing with its transfer's bytes.
         let media: Progress
+        /// The media transfers themselves, for totalling their bytes.
+        let transfers: MediaTransfers
         /// One unit for attributing the staged files and resolving where they go.
         let saving: Progress
     }
@@ -44,10 +49,19 @@ final class JobProgress {
     /// One unit per preparation step.
     let preparation = Progress.discreteProgress(totalUnitCount: 5)
 
+    /// How often the transfers' bytes are totalled, and so how often the row's byte line moves.
+    private static let samplingInterval: Duration = .seconds(1)
+    /// How many intervals the rate is averaged over, so a stall or a burst does not swing it.
+    private static let rateWindow = 5
+
     private let job: ArchiveJob
     private let root = Progress.discreteProgress(totalUnitCount: Weight.preparation + Weight.remainder)
     private let gate = PublishingGate()
     private var media: Progress?
+    private var transfers: MediaTransfers?
+    private var samplingTask: Task<Void, Never>?
+    /// The latest samples, oldest first, at most one more than ``rateWindow``.
+    private var samples: [(at: ContinuousClock.Instant, received: Int64)] = []
     private var observations: [NSKeyValueObservation] = []
 
     init(for job: ArchiveJob) {
@@ -86,6 +100,7 @@ final class JobProgress {
         let stages = Stages(
             pageFormats: .discreteProgress(totalUnitCount: Int64(pageFormatCount)),
             media: .discreteProgress(totalUnitCount: Int64(mediaCount)),
+            transfers: MediaTransfers(count: mediaCount),
             saving: .discreteProgress(totalUnitCount: 1)
         )
         // A stage with nothing in it is left out rather than attached with no units: an empty
@@ -106,6 +121,14 @@ final class JobProgress {
                 guard let self else { return }
                 Task { @MainActor in self.publishMediaCount() }
             })
+            transfers = stages.transfers
+            samplingTask = Task { [weak self] in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: Self.samplingInterval)
+                    guard !Task.isCancelled, let self else { return }
+                    self.sampleTransfers()
+                }
+            }
         }
         return stages
     }
@@ -116,9 +139,49 @@ final class JobProgress {
             observation.invalidate()
         }
         observations.removeAll()
+        samplingTask?.cancel()
+        samplingTask = nil
         if job.currentProgress === self {
+            job.mediaTransferProgress = nil
             job.currentProgress = nil
         }
+    }
+
+    /// Totals the transfers' bytes, puts a rate on them from the samples before, and publishes
+    /// the result. Once every transfer is done the last total goes out without a rate, and the
+    /// sampling ends with it.
+    private func sampleTransfers() {
+        guard job.currentProgress === self, let media, let transfers else { return }
+        let received = transfers.countOfBytesReceived
+        let expected = transfers.countOfBytesExpectedToReceive
+
+        if media.isFinished {
+            samplingTask?.cancel()
+            samplingTask = nil
+            job.mediaTransferProgress = MediaTransferProgress(
+                countOfBytesReceived: received,
+                countOfBytesExpectedToReceive: expected,
+                throughput: nil
+            )
+            return
+        }
+
+        samples.append((at: .now, received: received))
+        if samples.count > Self.rateWindow + 1 {
+            samples.removeFirst()
+        }
+        var throughput: Int?
+        if let first = samples.first, let last = samples.last, samples.count > 1 {
+            let seconds = first.at.duration(to: last.at) / .seconds(1)
+            if seconds > 0 {
+                throughput = Int(Double(last.received - first.received) / seconds)
+            }
+        }
+        job.mediaTransferProgress = MediaTransferProgress(
+            countOfBytesReceived: received,
+            countOfBytesExpectedToReceive: expected,
+            throughput: throughput
+        )
     }
 
     // Both read the tree afresh rather than taking the value that triggered them, so hops that
